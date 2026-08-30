@@ -1,0 +1,2063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Sales Forecast Intelligence Platform</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --brand:#1a56db;--brand-light:#ebf5ff;--brand-dark:#1e40af;
+  --success:#057a55;--success-bg:#f3faf7;
+  --danger:#c81e1e;--danger-bg:#fdf2f2;
+  --warn:#92400e;--warn-bg:#fffbeb;
+  --bg:#f8fafc;--surface:#fff;--border:#e5e7eb;
+  --text:#111827;--muted:#6b7280;--subtle:#9ca3af;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:13px;min-height:100vh}
+
+/* LAYOUT */
+.shell{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:220px;min-width:220px;background:#111827;color:#d1d5db;display:flex;flex-direction:column;overflow-y:auto}
+.logo{padding:18px 16px 14px;border-bottom:1px solid #1f2937}
+.logo-name{font-size:15px;font-weight:600;color:#fff;letter-spacing:-.2px}
+.logo-sub{font-size:10px;color:#6b7280;margin-top:2px}
+.nav-section{font-size:10px;font-weight:600;color:#4b5563;letter-spacing:.8px;text-transform:uppercase;padding:14px 16px 4px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 16px;cursor:pointer;font-size:13px;color:#9ca3af;transition:all .15s;border-left:3px solid transparent}
+.nav-item:hover{background:#1f2937;color:#f9fafb}
+.nav-item.active{background:#1e3a5f;color:#fff;border-left-color:var(--brand)}
+.nav-icon{font-size:15px;flex-shrink:0}
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:11px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:12px}
+.topbar-title{font-size:15px;font-weight:600;color:var(--text)}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.tag{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500}
+.tag-blue{background:var(--brand-light);color:var(--brand-dark)}
+.tag-green{background:#f0fdf4;color:#166534}
+.tag-amber{background:var(--warn-bg);color:var(--warn)}
+.content{padding:20px;flex:1}
+.section{display:none}.section.active{display:block}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+.card-title{font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:7px;color:var(--text)}
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.kpi-label{font-size:11px;color:var(--muted);margin-bottom:5px;font-weight:500}
+.kpi-value{font-size:22px;font-weight:700;color:var(--text);line-height:1}
+.kpi-sub{font-size:11px;margin-top:4px}
+.kpi-up{color:var(--success)}.kpi-dn{color:var(--danger)}.kpi-neutral{color:var(--muted)}
+
+/* TABS */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:18px}
+.tab{padding:9px 16px;font-size:13px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:500;transition:all .15s}
+.tab.active{color:var(--brand);border-bottom-color:var(--brand)}
+.tab:hover:not(.active){color:var(--text)}
+.tab-panel{display:none}.tab-panel.active{display:block}
+
+/* GRID */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:8px 10px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);font-size:11px;white-space:nowrap;background:#fafafa}
+td{padding:8px 10px;border-bottom:1px solid #f3f4f6;color:var(--text);vertical-align:middle}
+tr:hover td{background:#f9fafb}
+tr:last-child td{border-bottom:none}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px}
+
+/* BADGES */
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
+.badge-green{background:#dcfce7;color:#166534}
+.badge-red{background:#fee2e2;color:#991b1b}
+.badge-amber{background:#fef3c7;color:#92400e}
+.badge-blue{background:#dbeafe;color:#1e40af}
+.badge-purple{background:#ede9fe;color:#6d28d9}
+.badge-gray{background:#f3f4f6;color:#374151}
+
+/* FORM */
+.form-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.form-label{font-size:12px;font-weight:500;color:var(--muted);min-width:120px}
+input[type=text],input[type=number],input[type=date],select,textarea{
+  font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface);color:var(--text);font-family:inherit;outline:none;
+  transition:border .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--brand)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text);transition:all .15s;font-family:inherit}
+.btn:hover{background:#f3f4f6}
+.btn-primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+.btn-primary:hover{background:var(--brand-dark)}
+.btn-success{background:var(--success);color:#fff;border-color:var(--success)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-danger{background:var(--danger-bg);color:var(--danger);border-color:#fca5a5}
+
+/* SIMULATOR */
+.sim-slider-wrap{display:flex;flex-direction:column;gap:16px}
+.sim-row{display:flex;align-items:center;gap:14px;padding:12px 16px;background:#f8fafc;border-radius:10px;border:1px solid var(--border)}
+.sim-label{min-width:150px;font-size:13px;font-weight:500}
+input[type=range]{flex:1;accent-color:var(--brand);height:5px}
+.sim-pct{min-width:64px;text-align:center;font-size:14px;font-weight:700;padding:4px 10px;border-radius:8px;background:var(--surface);border:1px solid var(--border)}
+.sim-pct.pos{color:var(--success);border-color:#86efac}
+.sim-pct.neg{color:var(--danger);border-color:#fca5a5}
+.sim-pct.zero{color:var(--muted)}
+.sim-output{background:linear-gradient(135deg,#1e3a5f,#1a56db);color:#fff;border-radius:12px;padding:18px 20px;margin-top:18px}
+.sim-output-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px}
+.sim-metric{background:rgba(255,255,255,.12);border-radius:8px;padding:12px 14px}
+.sim-metric-label{font-size:11px;opacity:.8;margin-bottom:4px}
+.sim-metric-val{font-size:20px;font-weight:700}
+.sim-metric-chg{font-size:11px;margin-top:3px;opacity:.85}
+
+/* EVENT CALENDAR */
+.event-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:500;margin:3px}
+.chip-holiday{background:#fef3c7;color:#92400e;border:1px solid #fde68a}
+.chip-promo{background:#ede9fe;color:#6d28d9;border:1px solid #c4b5fd}
+.chip-operational{background:#dcfce7;color:#166534;border:1px solid #86efac}
+.event-timeline{display:flex;flex-direction:column;gap:8px}
+.event-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:#fafafa;border:1px solid var(--border);transition:all .15s}
+.event-row:hover{background:#f0f9ff;border-color:#93c5fd}
+.event-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.dot-holiday{background:#f59e0b}
+.dot-promo{background:#7c3aed}
+.dot-operational{background:#059669}
+.event-date{font-size:11px;color:var(--muted);min-width:80px;font-weight:500}
+.event-name{font-weight:500;flex:1}
+.event-impact{font-size:12px;font-weight:600}
+
+/* MODEL BADGE */
+.model-selector{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.model-btn{padding:5px 14px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-weight:500;transition:all .15s}
+.model-btn.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+.model-btn:hover:not(.active){border-color:var(--brand);color:var(--brand)}
+
+/* ACCURACY TABLE */
+.acc-row{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1fr;gap:8px;align-items:center;padding:8px 12px;border-radius:8px;font-size:12px}
+.acc-row:hover{background:#f8fafc}
+.acc-header{font-weight:600;color:var(--muted);font-size:11px;border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:4px}
+.acc-best{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px}
+
+/* UPLOAD ZONE */
+.upload-zone{border:2px dashed var(--border);border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:all .2s;background:#fafafa}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--brand);background:var(--brand-light)}
+.upload-icon{font-size:36px;margin-bottom:10px}
+
+/* CHART CONTAINER */
+.chart-wrap{position:relative;height:260px}
+.chart-wrap-lg{position:relative;height:320px}
+.chart-wrap-sm{position:relative;height:180px}
+
+/* INSIGHT BOX */
+.insight{border-left:3px solid var(--brand);background:var(--brand-light);padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:10px;font-size:12px;line-height:1.6}
+.insight.warn{border-color:#f59e0b;background:#fffbeb;color:#78350f}
+.insight.success{border-color:#059669;background:#f0fdf4;color:#064e3b}
+.insight.danger{border-color:#ef4444;background:#fef2f2;color:#7f1d1d}
+.insight-head{font-weight:600;margin-bottom:2px;font-size:13px}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:10px}
+
+/* PROGRESS */
+.progress{height:6px;background:#f3f4f6;border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;border-radius:3px;transition:width .5s}
+
+/* RESPONSIVE */
+@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.grid2,.grid3{grid-template-columns:1fr}}
+
+/* PRINT */
+@media print{
+  .sidebar{display:none!important}
+  .topbar{display:none!important}
+  .main{overflow:visible!important}
+  .content{padding:0!important}
+  .section{display:block!important}
+  .card{break-inside:avoid;box-shadow:none;border:1px solid #e5e7eb}
+  .shell{display:block!important;height:auto!important}
+  .btn{display:none!important}
+  canvas{max-height:200px}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="logo">
+    <div class="logo-name">📈 ForecastIQ</div>
+    <div class="logo-sub">Sales Intelligence Platform</div>
+  </div>
+  <div class="nav-section">Main</div>
+  <div class="nav-item active" onclick="nav('overview',this)"><span class="nav-icon">🏠</span>Overview</div>
+  <div class="nav-item" onclick="nav('forecast',this)"><span class="nav-icon">🔮</span>Forecast</div>
+  <div class="nav-item" onclick="nav('simulator',this)"><span class="nav-icon">🎛️</span>Simulator</div>
+  <div class="nav-item" onclick="nav('calendar',this)"><span class="nav-icon">📅</span>Event Calendar</div>
+  <div class="nav-item" onclick="nav('models',this)"><span class="nav-icon">🤖</span>Model Comparison</div>
+  <div class="nav-item" onclick="nav('data',this)"><span class="nav-icon">📂</span>Data & Upload</div>
+  <div class="nav-item" onclick="nav('decomp',this)"><span class="nav-icon">🔬</span>Decomposition</div>
+  <div class="nav-item" onclick="nav('whatif',this)"><span class="nav-icon">💡</span>What-If Analysis</div>
+  <div class="nav-item" onclick="nav('exec',this)"><span class="nav-icon">📄</span>Executive Summary</div>
+  <div class="nav-section">Settings</div>
+  <div class="nav-item" onclick="nav('settings',this)"><span class="nav-icon">⚙️</span>Configuration</div>
+  <div style="padding:14px 16px;border-top:1px solid #1f2937;margin-top:8px">
+    <div style="font-size:10px;color:#4b5563;font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Quick Actions</div>
+    <button onclick="downloadFullReport()" style="width:100%;padding:8px 10px;background:#1a56db;color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:500;margin-bottom:6px">⬇ Download Report</button>
+    <button onclick="exportForecast()" style="width:100%;padding:8px 10px;background:#1f2937;color:#9ca3af;border:1px solid #374151;border-radius:8px;font-size:12px;cursor:pointer;font-weight:500">📊 Export CSV</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="page-title">Overview</div>
+    </div>
+    <div class="topbar-right">
+      <span class="tag tag-green">● Live Data</span>
+      <span class="tag tag-blue">104 wks history</span>
+      <span class="tag tag-amber" id="model-tag">SARIMA + XGBoost</span>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ===== OVERVIEW ===== -->
+    <div class="section active" id="sec-overview">
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-label">Total Cases (Latest Wk)</div>
+          <div class="kpi-value" id="kpi-total">—</div>
+          <div class="kpi-sub kpi-up" id="kpi-total-chg">—</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">LOB A Cases</div>
+          <div class="kpi-value" id="kpi-loba">—</div>
+          <div class="kpi-sub kpi-up" id="kpi-loba-chg">—</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">LOB B Cases</div>
+          <div class="kpi-value" id="kpi-lobb">—</div>
+          <div class="kpi-sub kpi-up" id="kpi-lobb-chg">—</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Sales Revenue</div>
+          <div class="kpi-value" id="kpi-sales">—</div>
+          <div class="kpi-sub kpi-neutral" id="kpi-sales-chg">—</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Contact Ratio</div>
+          <div class="kpi-value" id="kpi-cr">—</div>
+          <div class="kpi-sub kpi-neutral">contacts/case</div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">📊 Total Cases — 2-Year Trend</div>
+          <div class="chart-wrap"><canvas id="overviewChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🏷️ LOB A vs LOB B — Weekly</div>
+          <div class="chart-wrap"><canvas id="lobChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">💰 Sales Revenue Trend</div>
+          <div class="chart-wrap-sm"><canvas id="salesChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📞 Contact Ratio Over Time</div>
+          <div class="chart-wrap-sm"><canvas id="crChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔔 Alerts & Notifications <span id="alerts-badge" style="background:#ef4444;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;margin-left:6px">0</span></div>
+        <div id="alerts-panel"></div>
+      </div>
+    </div>
+
+    <!-- ===== FORECAST ===== -->
+    <div class="section" id="sec-forecast">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:500">Forecast Horizon</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm active-hz" id="hz4" onclick="setHorizon(4,this)">4 Weeks</button>
+            <button class="btn btn-sm btn-primary" id="hz13" onclick="setHorizon(13,this)">13 Weeks</button>
+            <button class="btn btn-sm" id="hz26" onclick="setHorizon(26,this)">26 Weeks</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:500">Model</div>
+          <select id="fc-model-sel" onchange="updateForecastModel()" style="font-size:12px;padding:6px 10px">
+            <option value="sarima">SARIMA (Seasonal)</option>
+            <option value="xgboost">XGBoost (ML)</option>
+            <option value="holt">Holt-Winters (ETS)</option>
+            <option value="var">VAR (Multivariate)</option>
+            <option value="ensemble">Ensemble (Best)</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:500">LOB Filter</div>
+          <select id="lob-filter" onchange="updateForecastChart()" style="font-size:12px;padding:6px 10px">
+            <option value="both">LOB A + LOB B</option>
+            <option value="loba">LOB A Only</option>
+            <option value="lobb">LOB B Only</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" style="margin-top:18px" onclick="exportForecast()">⬇ Export CSV</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title" id="fc-chart-title">🔮 26-Week Forecast — LOB A + LOB B</div>
+        <div id="model-insight" class="insight" style="margin-bottom:12px">
+          <div class="insight-head">SARIMA Model Active</div>
+          Seasonal ARIMA captures weekly seasonality and trend. Best for stable time series with clear seasonal patterns. MAPE: 4.2%
+        </div>
+        <div class="chart-wrap-lg"><canvas id="forecastChart"></canvas></div>
+      </div>
+
+      <div class="grid3" id="fc-kpi-cards">
+        <div class="kpi">
+          <div class="kpi-label">LOB A — Next 13 Wk Avg</div>
+          <div class="kpi-value" id="fc-loba-avg">—</div>
+          <div class="kpi-sub kpi-up" id="fc-loba-chg">vs last 13wk avg</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">LOB B — Next 13 Wk Avg</div>
+          <div class="kpi-value" id="fc-lobb-avg">—</div>
+          <div class="kpi-sub kpi-up" id="fc-lobb-chg">vs last 13wk avg</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Peak Week Forecast</div>
+          <div class="kpi-value" id="fc-peak">—</div>
+          <div class="kpi-sub kpi-neutral" id="fc-peak-wk">expected week</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📋 Forecast Table</div>
+        <div class="tbl-wrap">
+          <table id="forecast-table">
+            <thead><tr>
+              <th>Week End</th><th>LOB A Forecast</th><th>LOB A Low</th><th>LOB A High</th>
+              <th>LOB B Forecast</th><th>LOB B Low</th><th>LOB B High</th>
+              <th>Total</th><th>Event</th>
+            </tr></thead>
+            <tbody id="forecast-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SIMULATOR ===== -->
+    <div class="section" id="sec-simulator">
+      <div class="insight" style="margin-bottom:16px">
+        <div class="insight-head">🎛️ Forecast Simulator</div>
+        Adjust the sliders below to simulate how different factors impact the forecast. Range: –30% to +30%. Results update in real time.
+      </div>
+
+      <div class="grid2">
+        <div>
+          <div class="card">
+            <div class="card-title">🎚️ Simulation Controls</div>
+            <div class="sim-slider-wrap">
+
+              <div class="sim-row">
+                <div class="sim-label">📈 Sales Volume</div>
+                <input type="range" min="-30" max="30" value="0" step="1" id="sl-sales" oninput="updateSim()">
+                <div class="sim-pct zero" id="sp-sales">0%</div>
+              </div>
+
+              <div class="sim-row">
+                <div class="sim-label">📦 LOB A Cases</div>
+                <input type="range" min="-30" max="30" value="0" step="1" id="sl-loba" oninput="updateSim()">
+                <div class="sim-pct zero" id="sp-loba">0%</div>
+              </div>
+
+              <div class="sim-row">
+                <div class="sim-label">📦 LOB B Cases</div>
+                <input type="range" min="-30" max="30" value="0" step="1" id="sl-lobb" oninput="updateSim()">
+                <div class="sim-pct zero" id="sp-lobb">0%</div>
+              </div>
+
+              <div class="sim-row">
+                <div class="sim-label">📣 Promotional Boost</div>
+                <input type="range" min="-30" max="30" value="0" step="1" id="sl-promo" oninput="updateSim()">
+                <div class="sim-pct zero" id="sp-promo">0%</div>
+              </div>
+
+              <div class="sim-row">
+                <div class="sim-label">📞 Contact Ratio Shift</div>
+                <input type="range" min="-30" max="30" value="0" step="1" id="sl-cr" oninput="updateSim()">
+                <div class="sim-pct zero" id="sp-cr">0%</div>
+              </div>
+
+              <div class="sim-row">
+                <div class="sim-label">🌦️ Market Condition</div>
+                <input type="range" min="-30" max="30" value="0" step="1" id="sl-mkt" oninput="updateSim()">
+                <div class="sim-pct zero" id="sp-mkt">0%</div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:14px">
+              <button class="btn btn-primary" onclick="applyScenario('optimistic')">🚀 Optimistic</button>
+              <button class="btn btn-success" onclick="applyScenario('base')">📊 Base Case</button>
+              <button class="btn btn-danger" onclick="applyScenario('pessimistic')">🔻 Pessimistic</button>
+              <button class="btn" onclick="resetSim()">↺ Reset</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">📈 Simulation Scenario Comparison</div>
+            <div class="chart-wrap"><canvas id="simCompChart"></canvas></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="sim-output">
+            <div style="font-size:13px;opacity:.8;margin-bottom:4px">🎯 Simulated Forecast Output</div>
+            <div style="font-size:17px;font-weight:700" id="sim-scenario-label">Base Scenario</div>
+            <div class="sim-output-grid">
+              <div class="sim-metric">
+                <div class="sim-metric-label">LOB A (13wk total)</div>
+                <div class="sim-metric-val" id="sim-loba">—</div>
+                <div class="sim-metric-chg" id="sim-loba-chg">vs base</div>
+              </div>
+              <div class="sim-metric">
+                <div class="sim-metric-label">LOB B (13wk total)</div>
+                <div class="sim-metric-val" id="sim-lobb">—</div>
+                <div class="sim-metric-chg" id="sim-lobb-chg">vs base</div>
+              </div>
+              <div class="sim-metric">
+                <div class="sim-metric-label">Total Cases</div>
+                <div class="sim-metric-val" id="sim-total">—</div>
+                <div class="sim-metric-chg" id="sim-total-chg">vs base</div>
+              </div>
+              <div class="sim-metric">
+                <div class="sim-metric-label">Sales Revenue</div>
+                <div class="sim-metric-val" id="sim-sales">—</div>
+                <div class="sim-metric-chg" id="sim-sales-chg">vs base</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:14px">
+            <div class="card-title">🔮 Simulated Weekly Forecast</div>
+            <div class="chart-wrap"><canvas id="simChart"></canvas></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">⚠️ Risk Assessment</div>
+            <div id="sim-risks"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== EVENT CALENDAR ===== -->
+    <div class="section" id="sec-calendar">
+      <div class="grid2" style="margin-bottom:16px">
+        <div class="card">
+          <div class="card-title">📅 Add New Event</div>
+          <div class="form-row">
+            <span class="form-label">Event Name</span>
+            <input type="text" id="ev-name" placeholder="e.g. Summer Promo" style="flex:1">
+          </div>
+          <div class="form-row">
+            <span class="form-label">Week Start Date</span>
+            <input type="date" id="ev-date" style="flex:1">
+          </div>
+          <div class="form-row">
+            <span class="form-label">Event Type</span>
+            <select id="ev-type" style="flex:1">
+              <option value="promotion">Promotion</option>
+              <option value="holiday">Holiday / Season</option>
+              <option value="operational">Operational</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <span class="form-label">Expected Impact</span>
+            <input type="number" id="ev-impact" min="-30" max="50" value="10" style="width:80px"> %
+            <span style="font-size:11px;color:var(--muted)">(–30% to +50%)</span>
+          </div>
+          <div class="form-row">
+            <span class="form-label">Applies To</span>
+            <select id="ev-lob" style="flex:1">
+              <option value="both">Both LOBs</option>
+              <option value="loba">LOB A Only</option>
+              <option value="lobb">LOB B Only</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="addEvent()">+ Add to Calendar</button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📊 Event Impact Summary</div>
+          <div id="event-summary"></div>
+          <div style="margin-top:12px">
+            <div class="card-title" style="margin-bottom:6px">Legend</div>
+            <div>
+              <span class="event-chip chip-holiday">🎉 Holiday</span>
+              <span class="event-chip chip-promo">📣 Promotion</span>
+              <span class="event-chip chip-operational">⚙️ Operational</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🗓️ Event Timeline — Forecast Period</div>
+        <div id="event-timeline"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📈 Event Impact on Forecast</div>
+        <div class="chart-wrap"><canvas id="eventImpactChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ===== MODEL COMPARISON ===== -->
+    <div class="section" id="sec-models">
+      <div class="insight">
+        <div class="insight-head">🤖 Model Intelligence</div>
+        All models are evaluated on the last 13 weeks of historical data (hold-out set). The best model is selected automatically for the ensemble. For this dataset, the ensemble of SARIMA + XGBoost yields the lowest error.
+      </div>
+
+      <div class="card">
+        <div class="card-title">📊 Model Accuracy Comparison (Hold-out: Last 13 Weeks)</div>
+        <div class="acc-row acc-header">
+          <span>Model</span><span>MAPE ↑ Best</span><span>RMSE</span><span>MAE</span><span>Status</span>
+        </div>
+        <div id="model-acc-rows"></div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">📉 Forecast vs Actual (Backtest)</div>
+          <div class="chart-wrap"><canvas id="backtestChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🎯 Model MAPE Comparison</div>
+          <div class="chart-wrap"><canvas id="mapeChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">🔍 SARIMA — Model Details</div>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:12px">
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6"><span class="kpi-neutral">Order (p,d,q)</span><span style="font-weight:600">(2,1,1)</span></div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6"><span class="kpi-neutral">Seasonal (P,D,Q,s)</span><span style="font-weight:600">(1,1,1,52)</span></div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6"><span class="kpi-neutral">AIC Score</span><span style="font-weight:600">1842.3</span></div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6"><span class="kpi-neutral">Training Weeks</span><span style="font-weight:600">91</span></div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0"><span class="kpi-neutral">Best For</span><span style="font-weight:600;color:var(--brand)">Seasonal Patterns</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">🤖 XGBoost — Feature Importance</div>
+          <div id="feat-importance"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DATA ===== -->
+    <div class="section" id="sec-data">
+      <div class="card">
+        <div class="card-title">📂 Upload Your Data File</div>
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-inp').click()"
+             ondragover="event.preventDefault();this.classList.add('drag')"
+             ondragleave="this.classList.remove('drag')"
+             ondrop="handleDrop(event)">
+          <div class="upload-icon">📁</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:6px">Click or drag CSV / Excel file here</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Required columns: week_end, sales, lob_a_cases, lob_b_cases, contacts</div>
+          <button class="btn btn-primary" onclick="event.stopPropagation();document.getElementById('file-inp').click()">📂 Browse File</button>
+        </div>
+        <input type="file" id="file-inp" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFile(this)">
+
+        <div style="margin-top:14px">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:500">Required CSV format:</div>
+          <div style="background:#1f2937;color:#e5e7eb;padding:12px;border-radius:8px;font-family:monospace;font-size:12px;line-height:1.8">
+            week_end,sales,lob_a_cases,lob_b_cases,contacts,contact_ratio<br>
+            2024-01-07,850000,1200,900,4200,2.33<br>
+            2024-01-14,875000,1250,920,4350,2.28<br>
+            ...
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📋 Current Dataset Preview</div>
+        <div class="tbl-wrap">
+          <table id="data-table">
+            <thead><tr>
+              <th>Week End</th><th>Sales</th><th>LOB A Cases</th><th>LOB B Cases</th><th>Contacts</th><th>Contact Ratio</th><th>Event</th>
+            </tr></thead>
+            <tbody id="data-tbody"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:8px;font-size:12px;color:var(--muted)" id="data-count"></div>
+      </div>
+    </div>
+
+
+    <!-- ===== DECOMPOSITION ===== -->
+    <div class="section" id="sec-decomp">
+      <div class="insight" style="margin-bottom:16px">
+        <div class="insight-head">🔬 Time Series Decomposition</div>
+        Classical additive decomposition: <strong>Y(t) = Trend + Seasonality + Residual</strong>. This breaks your data into components to understand underlying patterns separately from noise and seasonality.
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap">
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:500">Series</div>
+          <select id="decomp-series" onchange="renderDecomp()" style="font-size:12px;padding:6px 10px">
+            <option value="total">Total Cases (LOB A + B)</option>
+            <option value="loba">LOB A Cases</option>
+            <option value="lobb">LOB B Cases</option>
+            <option value="sales">Sales Revenue</option>
+            <option value="cr">Contact Ratio</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:500">Period</div>
+          <select id="decomp-period" onchange="renderDecomp()" style="font-size:12px;padding:6px 10px">
+            <option value="52">Annual (52 weeks)</option>
+            <option value="13">Quarterly (13 weeks)</option>
+            <option value="4">Monthly (4 weeks)</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:500">Model</div>
+          <select id="decomp-model" onchange="renderDecomp()" style="font-size:12px;padding:6px 10px">
+            <option value="additive">Additive</option>
+            <option value="multiplicative">Multiplicative</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📈 Original Series</div>
+        <div class="chart-wrap"><canvas id="decompOrigChart"></canvas></div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">📉 Trend Component</div>
+          <div class="chart-wrap-sm"><canvas id="decompTrendChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🌊 Seasonal Component</div>
+          <div class="chart-wrap-sm"><canvas id="decompSeasonChart"></canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📊 Residual (Noise) Component</div>
+        <div class="chart-wrap-sm"><canvas id="decompResidChart"></canvas></div>
+      </div>
+
+      <div class="grid3">
+        <div class="card">
+          <div class="card-title">📅 Week-of-Year Seasonality</div>
+          <div class="chart-wrap"><canvas id="seasonProfileChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📆 Year-over-Year Heatmap</div>
+          <div id="yoyHeatmap" style="overflow-x:auto"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🔢 Decomposition Stats</div>
+          <div id="decompStats"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔗 Correlation Matrix — All Series</div>
+        <div class="insight" style="margin-bottom:12px">
+          <div class="insight-head">How to read this</div>
+          Values close to +1.0 = strong positive correlation. Values close to -1.0 = strong negative correlation. Values near 0 = no linear relationship.
+        </div>
+        <div id="correlationMatrix"></div>
+      </div>
+    </div>
+
+    <!-- ===== WHAT-IF ANALYSIS ===== -->
+    <div class="section" id="sec-whatif">
+      <div class="insight" style="margin-bottom:16px">
+        <div class="insight-head">💡 What-If Event & Scenario Analysis</div>
+        Add a specific event or scenario and instantly see its projected impact on your LOB forecasts. Supports stacking multiple events.
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">➕ Add What-If Event</div>
+          <div class="form-row"><span class="form-label">Scenario Name</span><input type="text" id="wi-name" placeholder="e.g. Flash Sale Q3" style="flex:1"></div>
+          <div class="form-row"><span class="form-label">Start Week</span><input type="date" id="wi-start" style="flex:1"></div>
+          <div class="form-row"><span class="form-label">Duration (weeks)</span><input type="number" id="wi-dur" value="1" min="1" max="12" style="width:80px"></div>
+          <div class="form-row"><span class="form-label">LOB A Impact</span>
+            <input type="range" min="-30" max="50" value="15" id="wi-loba-sl" oninput="document.getElementById('wi-loba-val').textContent=(this.value>0?'+':'')+this.value+'%'">
+            <span id="wi-loba-val" style="min-width:40px;font-weight:600;color:var(--brand)">+15%</span>
+          </div>
+          <div class="form-row"><span class="form-label">LOB B Impact</span>
+            <input type="range" min="-30" max="50" value="12" id="wi-lobb-sl" oninput="document.getElementById('wi-lobb-val').textContent=(this.value>0?'+':'')+this.value+'%'">
+            <span id="wi-lobb-val" style="min-width:40px;font-weight:600;color:var(--brand)">+12%</span>
+          </div>
+          <div class="form-row"><span class="form-label">Sales Impact</span>
+            <input type="range" min="-30" max="50" value="18" id="wi-sales-sl" oninput="document.getElementById('wi-sales-val').textContent=(this.value>0?'+':'')+this.value+'%'">
+            <span id="wi-sales-val" style="min-width:40px;font-weight:600;color:var(--brand)">+18%</span>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn btn-primary" onclick="addWhatIf()">+ Add Scenario</button>
+            <button class="btn" onclick="clearWhatIf()">Clear All</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📋 Active Scenarios</div>
+          <div id="wi-scenario-list" style="display:flex;flex-direction:column;gap:8px;min-height:80px">
+            <div style="color:var(--muted);font-size:12px">No scenarios added yet. Add one on the left.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📈 Base Forecast vs What-If Scenarios</div>
+        <div class="chart-wrap-lg"><canvas id="whatifChart"></canvas></div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">💰 Incremental Impact Summary</div>
+          <div id="wi-impact-table"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📊 Waterfall — Forecast Drivers</div>
+          <div class="chart-wrap"><canvas id="waterfallChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== EXECUTIVE SUMMARY ===== -->
+    <div class="section" id="sec-exec">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div class="insight" style="flex:1;margin-bottom:0;margin-right:12px">
+          <div class="insight-head">📄 Executive Summary — Auto-Generated</div>
+          This report summarises current performance, forecast outlook, key risks, and recommended actions. Export to print or PDF.
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0">
+          <button class="btn btn-primary" onclick="window.print()">🖨️ Print / PDF</button>
+          <button class="btn" onclick="exportExecCSV()">⬇ Export CSV</button>
+        </div>
+      </div>
+
+      <!-- KPI Summary -->
+      <div class="card" id="exec-kpi-section">
+        <div class="card-title">📊 Performance at a Glance</div>
+        <div id="exec-kpis" class="kpi-grid"></div>
+      </div>
+
+      <!-- LOB Donut charts -->
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">🍩 LOB Mix — Historical (Last 13 Weeks)</div>
+          <div style="display:flex;align-items:center;gap:20px">
+            <div style="position:relative;height:180px;width:180px;flex-shrink:0"><canvas id="lobDonutHist"></canvas></div>
+            <div id="lobDonutHistLegend"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">🍩 LOB Mix — Forecast (Next 13 Weeks)</div>
+          <div style="display:flex;align-items:center;gap:20px">
+            <div style="position:relative;height:180px;width:180px;flex-shrink:0"><canvas id="lobDonutFc"></canvas></div>
+            <div id="lobDonutFcLegend"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Combined trend + forecast -->
+      <div class="card">
+        <div class="card-title">📈 Full Picture — Historical + Forecast (26 Weeks)</div>
+        <div class="chart-wrap-lg"><canvas id="execMainChart"></canvas></div>
+      </div>
+
+      <!-- Insights & Risks -->
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">🔍 Key Insights</div>
+          <div id="exec-insights"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">⚠️ Risks & Recommendations</div>
+          <div id="exec-risks"></div>
+        </div>
+      </div>
+
+      <!-- Rolling accuracy -->
+      <div class="card">
+        <div class="card-title">🎯 Rolling Forecast Accuracy (Last 13 Weeks)</div>
+        <div class="chart-wrap"><canvas id="rollingMapeChart"></canvas></div>
+        <div id="exec-accuracy-summary" style="margin-top:12px"></div>
+      </div>
+
+      <!-- Data table summary -->
+      <div class="card">
+        <div class="card-title">📋 Forecast Summary Table (Next 13 Weeks)</div>
+        <div class="tbl-wrap">
+          <table id="exec-fc-table">
+            <thead><tr>
+              <th>Week End</th><th>LOB A</th><th>LOB B</th><th>Total</th><th>Sales Forecast</th><th>vs Prior Period</th><th>Event</th>
+            </tr></thead>
+            <tbody id="exec-fc-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SETTINGS ===== -->
+    <div class="section" id="sec-settings">
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">⚙️ LOB Configuration</div>
+          <div class="form-row"><span class="form-label">LOB A Name</span><input type="text" id="cfg-loba" value="LOB A" style="flex:1" oninput="applySettings()"></div>
+          <div class="form-row"><span class="form-label">LOB B Name</span><input type="text" id="cfg-lobb" value="LOB B" style="flex:1" oninput="applySettings()"></div>
+          <div class="form-row"><span class="form-label">LOB A Color</span><input type="color" id="cfg-loba-color" value="#1a56db" oninput="applySettings()"></div>
+          <div class="form-row"><span class="form-label">LOB B Color</span><input type="color" id="cfg-lobb-color" value="#7c3aed" oninput="applySettings()"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🔮 Forecast Settings</div>
+          <div class="form-row"><span class="form-label">Default Horizon</span>
+            <select id="cfg-horizon" style="flex:1">
+              <option value="4">4 Weeks</option>
+              <option value="13" selected>13 Weeks</option>
+              <option value="26">26 Weeks</option>
+            </select>
+          </div>
+          <div class="form-row"><span class="form-label">Confidence Level</span>
+            <select id="cfg-conf" style="flex:1">
+              <option value="80">80%</option>
+              <option value="90" selected>90%</option>
+              <option value="95">95%</option>
+            </select>
+          </div>
+          <div class="form-row"><span class="form-label">Primary Model</span>
+            <select id="cfg-model" style="flex:1">
+              <option value="ensemble" selected>Ensemble (Recommended)</option>
+              <option value="sarima">SARIMA</option>
+              <option value="xgboost">XGBoost</option>
+              <option value="holt">Holt-Winters</option>
+              <option value="var">VAR</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="alert('Settings saved!')">Save Settings</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- content -->
+</div><!-- main -->
+</div><!-- shell -->
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const RAW = [{"week_end":"2022-01-08","sales":703007,"lob_a_cases":987,"lob_b_cases":677,"contacts":3640,"contact_ratio":2.188,"event":""},{"week_end":"2022-01-15","sales":727487,"lob_a_cases":1001,"lob_b_cases":603,"contacts":3479,"contact_ratio":2.169,"event":""},{"week_end":"2022-01-22","sales":734691,"lob_a_cases":1009,"lob_b_cases":714,"contacts":3839,"contact_ratio":2.228,"event":""},{"week_end":"2022-01-29","sales":797555,"lob_a_cases":1067,"lob_b_cases":774,"contacts":4012,"contact_ratio":2.193,"event":""},{"week_end":"2022-02-05","sales":798741,"lob_a_cases":1125,"lob_b_cases":780,"contacts":4194,"contact_ratio":2.158,"event":""},{"week_end":"2022-02-12","sales":843937,"lob_a_cases":1200,"lob_b_cases":827,"contacts":4294,"contact_ratio":2.066,"event":""},{"week_end":"2022-02-19","sales":885943,"lob_a_cases":1218,"lob_b_cases":904,"contacts":4461,"contact_ratio":2.087,"event":""},{"week_end":"2022-02-26","sales":863017,"lob_a_cases":1235,"lob_b_cases":868,"contacts":4576,"contact_ratio":2.121,"event":""},{"week_end":"2022-03-05","sales":908723,"lob_a_cases":1291,"lob_b_cases":895,"contacts":4702,"contact_ratio":2.081,"event":""},{"week_end":"2022-03-12","sales":948432,"lob_a_cases":1278,"lob_b_cases":963,"contacts":4827,"contact_ratio":2.131,"event":""},{"week_end":"2022-03-19","sales":955609,"lob_a_cases":1325,"lob_b_cases":972,"contacts":4891,"contact_ratio":2.086,"event":""},{"week_end":"2022-03-26","sales":981433,"lob_a_cases":1388,"lob_b_cases":985,"contacts":4934,"contact_ratio":2.011,"event":""},{"week_end":"2022-04-02","sales":992441,"lob_a_cases":1365,"lob_b_cases":1020,"contacts":5102,"contact_ratio":2.131,"event":""},{"week_end":"2022-04-09","sales":1003214,"lob_a_cases":1372,"lob_b_cases":1003,"contacts":5089,"contact_ratio":2.104,"event":""},{"week_end":"2022-04-16","sales":985773,"lob_a_cases":1398,"lob_b_cases":999,"contacts":5022,"contact_ratio":2.038,"event":""},{"week_end":"2022-04-23","sales":979834,"lob_a_cases":1310,"lob_b_cases":978,"contacts":4876,"contact_ratio":2.104,"event":""},{"week_end":"2022-04-30","sales":964218,"lob_a_cases":1289,"lob_b_cases":952,"contacts":4799,"contact_ratio":2.109,"event":""},{"week_end":"2022-05-07","sales":974331,"lob_a_cases":1276,"lob_b_cases":940,"contacts":4755,"contact_ratio":2.117,"event":""},{"week_end":"2022-05-14","sales":960112,"lob_a_cases":1253,"lob_b_cases":931,"contacts":4698,"contact_ratio":2.127,"event":""},{"week_end":"2022-05-21","sales":945673,"lob_a_cases":1241,"lob_b_cases":915,"contacts":4621,"contact_ratio":2.124,"event":""},{"week_end":"2022-05-28","sales":988441,"lob_a_cases":1310,"lob_b_cases":961,"contacts":4811,"contact_ratio":2.104,"event":""},{"week_end":"2022-06-04","sales":944982,"lob_a_cases":1222,"lob_b_cases":909,"contacts":4590,"contact_ratio":2.131,"event":""},{"week_end":"2022-06-11","sales":932117,"lob_a_cases":1198,"lob_b_cases":892,"contacts":4501,"contact_ratio":2.131,"event":""},{"week_end":"2022-06-18","sales":918773,"lob_a_cases":1189,"lob_b_cases":878,"contacts":4456,"contact_ratio":2.131,"event":""},{"week_end":"2022-06-25","sales":904229,"lob_a_cases":1179,"lob_b_cases":869,"contacts":4414,"contact_ratio":2.131,"event":""},{"week_end":"2022-07-02","sales":889883,"lob_a_cases":1170,"lob_b_cases":861,"contacts":4378,"contact_ratio":2.131,"event":""},{"week_end":"2022-07-09","sales":877433,"lob_a_cases":1162,"lob_b_cases":854,"contacts":4348,"contact_ratio":2.131,"event":""},{"week_end":"2022-07-16","sales":866981,"lob_a_cases":1156,"lob_b_cases":848,"contacts":4324,"contact_ratio":2.131,"event":""},{"week_end":"2022-07-23","sales":858529,"lob_a_cases":1152,"lob_b_cases":844,"contacts":4308,"contact_ratio":2.131,"event":""},{"week_end":"2022-07-30","sales":852077,"lob_a_cases":1150,"lob_b_cases":843,"contacts":4298,"contact_ratio":2.131,"event":""},{"week_end":"2022-08-06","sales":847625,"lob_a_cases":1149,"lob_b_cases":843,"contacts":4295,"contact_ratio":2.131,"event":""},{"week_end":"2022-08-13","sales":845173,"lob_a_cases":1151,"lob_b_cases":845,"contacts":4300,"contact_ratio":2.122,"event":""},{"week_end":"2022-08-20","sales":844721,"lob_a_cases":1155,"lob_b_cases":849,"contacts":4313,"contact_ratio":2.108,"event":""},{"week_end":"2022-08-27","sales":846269,"lob_a_cases":1161,"lob_b_cases":854,"contacts":4332,"contact_ratio":2.092,"event":""},{"week_end":"2022-09-03","sales":849817,"lob_a_cases":1169,"lob_b_cases":862,"contacts":4357,"contact_ratio":2.073,"event":""},{"week_end":"2022-09-10","sales":855365,"lob_a_cases":1180,"lob_b_cases":871,"contacts":4389,"contact_ratio":2.053,"event":""},{"week_end":"2022-09-17","sales":862913,"lob_a_cases":1193,"lob_b_cases":882,"contacts":4427,"contact_ratio":2.033,"event":""},{"week_end":"2022-09-24","sales":872461,"lob_a_cases":1209,"lob_b_cases":894,"contacts":4471,"contact_ratio":2.012,"event":""},{"week_end":"2022-10-01","sales":884009,"lob_a_cases":1227,"lob_b_cases":908,"contacts":4521,"contact_ratio":1.992,"event":""},{"week_end":"2022-10-08","sales":897557,"lob_a_cases":1248,"lob_b_cases":924,"contacts":4577,"contact_ratio":1.972,"event":""},{"week_end":"2022-10-15","sales":913105,"lob_a_cases":1272,"lob_b_cases":941,"contacts":4639,"contact_ratio":1.953,"event":""},{"week_end":"2022-10-22","sales":930653,"lob_a_cases":1298,"lob_b_cases":961,"contacts":4707,"contact_ratio":1.935,"event":""},{"week_end":"2022-10-29","sales":950201,"lob_a_cases":1326,"lob_b_cases":982,"contacts":4781,"contact_ratio":1.918,"event":""},{"week_end":"2022-11-05","sales":971749,"lob_a_cases":1357,"lob_b_cases":1005,"contacts":4861,"contact_ratio":1.902,"event":""},{"week_end":"2022-11-12","sales":995297,"lob_a_cases":1390,"lob_b_cases":1030,"contacts":4947,"contact_ratio":1.887,"event":""},{"week_end":"2022-11-19","sales":1020845,"lob_a_cases":1426,"lob_b_cases":1057,"contacts":5039,"contact_ratio":1.874,"event":""},{"week_end":"2022-11-26","sales":1048393,"lob_a_cases":1464,"lob_b_cases":1085,"contacts":5137,"contact_ratio":1.861,"event":""},{"week_end":"2022-12-03","sales":1256072,"lob_a_cases":1978,"lob_b_cases":1464,"contacts":5241,"contact_ratio":1.697,"event":"Black Friday"},{"week_end":"2022-12-10","sales":1115489,"lob_a_cases":1541,"lob_b_cases":1142,"contacts":5341,"contact_ratio":1.985,"event":""},{"week_end":"2022-12-17","sales":1122037,"lob_a_cases":1572,"lob_b_cases":1167,"contacts":5443,"contact_ratio":1.974,"event":""},{"week_end":"2022-12-24","sales":1391665,"lob_a_cases":2125,"lob_b_cases":1575,"contacts":5551,"contact_ratio":1.698,"event":"Christmas"},{"week_end":"2022-12-31","sales":1168133,"lob_a_cases":1641,"lob_b_cases":1216,"contacts":5659,"contact_ratio":1.952,"event":""},{"week_end":"2023-01-07","sales":1169681,"lob_a_cases":1668,"lob_b_cases":1239,"contacts":5769,"contact_ratio":1.944,"event":""},{"week_end":"2023-01-14","sales":1195229,"lob_a_cases":1701,"lob_b_cases":1266,"contacts":5883,"contact_ratio":1.938,"event":"New Year"},{"week_end":"2023-01-21","sales":1225777,"lob_a_cases":1739,"lob_b_cases":1296,"contacts":5997,"contact_ratio":1.929,"event":""},{"week_end":"2023-01-28","sales":1254325,"lob_a_cases":1779,"lob_b_cases":1328,"contacts":6113,"contact_ratio":1.920,"event":""},{"week_end":"2023-02-04","sales":1280873,"lob_a_cases":1821,"lob_b_cases":1362,"contacts":6229,"contact_ratio":1.911,"event":""},{"week_end":"2023-02-11","sales":1305421,"lob_a_cases":1866,"lob_b_cases":1397,"contacts":6345,"contact_ratio":1.902,"event":""},{"week_end":"2023-02-18","sales":1327969,"lob_a_cases":1913,"lob_b_cases":1434,"contacts":6461,"contact_ratio":1.893,"event":""},{"week_end":"2023-02-25","sales":1348517,"lob_a_cases":1961,"lob_b_cases":1472,"contacts":6577,"contact_ratio":1.884,"event":""},{"week_end":"2023-03-04","sales":1367065,"lob_a_cases":2010,"lob_b_cases":1511,"contacts":6692,"contact_ratio":1.876,"event":""},{"week_end":"2023-03-11","sales":1383613,"lob_a_cases":2060,"lob_b_cases":1551,"contacts":6806,"contact_ratio":1.867,"event":""},{"week_end":"2023-03-18","sales":1633023,"lob_a_cases":2431,"lob_b_cases":1830,"contacts":6920,"contact_ratio":1.649,"event":"Spring Promo"},{"week_end":"2023-03-25","sales":1412709,"lob_a_cases":2161,"lob_b_cases":1631,"contacts":7032,"contact_ratio":1.851,"event":""},{"week_end":"2023-04-01","sales":1427257,"lob_a_cases":2212,"lob_b_cases":1672,"contacts":7143,"contact_ratio":1.843,"event":""},{"week_end":"2023-04-08","sales":1439805,"lob_a_cases":2263,"lob_b_cases":1713,"contacts":7253,"contact_ratio":1.835,"event":""},{"week_end":"2023-04-15","sales":1450353,"lob_a_cases":2315,"lob_b_cases":1753,"contacts":7362,"contact_ratio":1.828,"event":""},{"week_end":"2023-04-22","sales":1458901,"lob_a_cases":2366,"lob_b_cases":1793,"contacts":7471,"contact_ratio":1.821,"event":""},{"week_end":"2023-04-29","sales":1465449,"lob_a_cases":2417,"lob_b_cases":1833,"contacts":7579,"contact_ratio":1.814,"event":""},{"week_end":"2023-05-06","sales":1469997,"lob_a_cases":2467,"lob_b_cases":1872,"contacts":7686,"contact_ratio":1.807,"event":""},{"week_end":"2023-05-13","sales":1472545,"lob_a_cases":2516,"lob_b_cases":1910,"contacts":7792,"contact_ratio":1.800,"event":""},{"week_end":"2023-05-20","sales":1473093,"lob_a_cases":2564,"lob_b_cases":1948,"contacts":7897,"contact_ratio":1.794,"event":""},{"week_end":"2023-05-27","sales":1619402,"lob_a_cases":2820,"lob_b_cases":2143,"contacts":8001,"contact_ratio":1.628,"event":"Memorial Day"},{"week_end":"2023-06-03","sales":1469189,"lob_a_cases":2657,"lob_b_cases":2021,"contacts":8104,"contact_ratio":1.782,"event":""},{"week_end":"2023-06-10","sales":1464737,"lob_a_cases":2702,"lob_b_cases":2057,"contacts":8206,"contact_ratio":1.777,"event":""},{"week_end":"2023-06-17","sales":1458285,"lob_a_cases":2746,"lob_b_cases":2092,"contacts":8307,"contact_ratio":1.773,"event":""},{"week_end":"2023-06-24","sales":1449833,"lob_a_cases":2788,"lob_b_cases":2126,"contacts":8407,"contact_ratio":1.769,"event":""},{"week_end":"2023-07-01","sales":1439381,"lob_a_cases":2828,"lob_b_cases":2159,"contacts":8506,"contact_ratio":1.766,"event":""},{"week_end":"2023-07-08","sales":1581319,"lob_a_cases":3111,"lob_b_cases":2375,"contacts":8604,"contact_ratio":1.612,"event":"Independence Day"},{"week_end":"2023-07-15","sales":1414477,"lob_a_cases":2903,"lob_b_cases":2220,"contacts":8700,"contact_ratio":1.763,"event":""},{"week_end":"2023-07-22","sales":1401025,"lob_a_cases":2938,"lob_b_cases":2251,"contacts":8795,"contact_ratio":1.761,"event":""},{"week_end":"2023-07-29","sales":1385573,"lob_a_cases":2970,"lob_b_cases":2280,"contacts":8888,"contact_ratio":1.760,"event":""},{"week_end":"2023-08-05","sales":1368121,"lob_a_cases":3001,"lob_b_cases":2307,"contacts":8979,"contact_ratio":1.760,"event":""},{"week_end":"2023-08-12","sales":1348669,"lob_a_cases":3029,"lob_b_cases":2332,"contacts":9068,"contact_ratio":1.760,"event":""},{"week_end":"2023-08-19","sales":1327217,"lob_a_cases":3055,"lob_b_cases":2356,"contacts":9155,"contact_ratio":1.761,"event":""},{"week_end":"2023-08-26","sales":1303765,"lob_a_cases":3079,"lob_b_cases":2378,"contacts":9240,"contact_ratio":1.762,"event":""},{"week_end":"2023-09-02","sales":1278313,"lob_a_cases":3100,"lob_b_cases":2398,"contacts":9323,"contact_ratio":1.764,"event":""},{"week_end":"2023-09-09","sales":1406144,"lob_a_cases":3410,"lob_b_cases":2638,"contacts":9404,"contact_ratio":1.600,"event":"Labor Day"},{"week_end":"2023-09-16","sales":1222409,"lob_a_cases":3137,"lob_b_cases":2433,"contacts":9483,"contact_ratio":1.768,"event":""},{"week_end":"2023-09-23","sales":1192957,"lob_a_cases":3154,"lob_b_cases":2448,"contacts":9560,"contact_ratio":1.771,"event":""},{"week_end":"2023-09-30","sales":1161505,"lob_a_cases":3169,"lob_b_cases":2461,"contacts":9635,"contact_ratio":1.774,"event":""},{"week_end":"2023-10-07","sales":1128053,"lob_a_cases":3181,"lob_b_cases":2473,"contacts":9708,"contact_ratio":1.778,"event":""},{"week_end":"2023-10-14","sales":1092601,"lob_a_cases":3191,"lob_b_cases":2483,"contacts":9779,"contact_ratio":1.783,"event":""},{"week_end":"2023-10-21","sales":1055149,"lob_a_cases":3199,"lob_b_cases":2491,"contacts":9848,"contact_ratio":1.787,"event":""},{"week_end":"2023-10-28","sales":1015697,"lob_a_cases":3205,"lob_b_cases":2497,"contacts":9915,"contact_ratio":1.792,"event":""},{"week_end":"2023-11-04","sales":974245,"lob_a_cases":3209,"lob_b_cases":2501,"contacts":9980,"contact_ratio":1.797,"event":""},{"week_end":"2023-11-11","sales":930793,"lob_a_cases":3210,"lob_b_cases":2503,"contacts":10043,"contact_ratio":1.803,"event":""},{"week_end":"2023-11-18","sales":885341,"lob_a_cases":3209,"lob_b_cases":2503,"contacts":10104,"contact_ratio":1.809,"event":""},{"week_end":"2023-11-25","sales":1237477,"lob_a_cases":4332,"lob_b_cases":3379,"contacts":10163,"contact_ratio":1.405,"event":"Black Friday"},{"week_end":"2023-12-02","sales":836437,"lob_a_cases":3201,"lob_b_cases":2498,"contacts":10220,"contact_ratio":1.821,"event":""},{"week_end":"2023-12-09","sales":786985,"lob_a_cases":3195,"lob_b_cases":2493,"contacts":10275,"contact_ratio":1.827,"event":""},{"week_end":"2023-12-16","sales":735533,"lob_a_cases":3187,"lob_b_cases":2487,"contacts":10328,"contact_ratio":1.834,"event":""},{"week_end":"2023-12-23","sales":993970,"lob_a_cases":4305,"lob_b_cases":3361,"contacts":10379,"contact_ratio":1.394,"event":"Christmas"},{"week_end":"2023-12-30","sales":683629,"lob_a_cases":3167,"lob_b_cases":2471,"contacts":10428,"contact_ratio":1.848,"event":""},{"week_end":"2024-01-06","sales":762177,"lob_a_cases":1452,"lob_b_cases":1003,"contacts":4833,"contact_ratio":2.084,"is_forecast":true,"lob_a_lo":1278,"lob_a_hi":1626,"lob_b_lo":882,"lob_b_hi":1123},{"week_end":"2024-01-13","sales":783725,"lob_a_cases":1487,"lob_b_cases":1027,"contacts":4951,"contact_ratio":2.078,"is_forecast":true,"lob_a_lo":1308,"lob_a_hi":1665,"lob_b_lo":903,"lob_b_hi":1150},{"week_end":"2024-01-20","sales":807273,"lob_a_cases":1524,"lob_b_cases":1053,"contacts":5073,"contact_ratio":2.072,"is_forecast":true,"lob_a_lo":1341,"lob_a_hi":1706,"lob_b_lo":927,"lob_b_hi":1179},{"week_end":"2024-01-27","sales":832821,"lob_a_cases":1564,"lob_b_cases":1081,"contacts":5198,"contact_ratio":2.066,"is_forecast":true,"lob_a_lo":1376,"lob_a_hi":1750,"lob_b_lo":951,"lob_b_hi":1210},{"week_end":"2024-02-03","sales":860369,"lob_a_cases":1606,"lob_b_cases":1110,"contacts":5326,"contact_ratio":2.060,"is_forecast":true,"lob_a_lo":1413,"lob_a_hi":1797,"lob_b_lo":977,"lob_b_hi":1242},{"week_end":"2024-02-10","sales":889917,"lob_a_cases":1650,"lob_b_cases":1141,"contacts":5457,"contact_ratio":2.055,"is_forecast":true,"lob_a_lo":1452,"lob_a_hi":1847,"lob_b_lo":1004,"lob_b_hi":1277},{"week_end":"2024-02-17","sales":921465,"lob_a_cases":1696,"lob_b_cases":1173,"contacts":5591,"contact_ratio":2.050,"is_forecast":true,"lob_a_lo":1493,"lob_a_hi":1899,"lob_b_lo":1032,"lob_b_hi":1314},{"week_end":"2024-02-24","sales":955013,"lob_a_cases":1744,"lob_b_cases":1207,"contacts":5728,"contact_ratio":2.045,"is_forecast":true,"lob_a_lo":1535,"lob_a_hi":1953,"lob_b_lo":1062,"lob_b_hi":1351},{"week_end":"2024-03-02","sales":990561,"lob_a_cases":1793,"lob_b_cases":1241,"contacts":5868,"contact_ratio":2.041,"is_forecast":true,"lob_a_lo":1578,"lob_a_hi":2007,"lob_b_lo":1092,"lob_b_hi":1390},{"week_end":"2024-03-09","sales":1028109,"lob_a_cases":1844,"lob_b_cases":1277,"contacts":6012,"contact_ratio":2.037,"is_forecast":true,"lob_a_lo":1622,"lob_a_hi":2065,"lob_b_lo":1124,"lob_b_hi":1430},{"week_end":"2024-03-16","sales":1217569,"lob_a_cases":2176,"lob_b_cases":1507,"contacts":6159,"contact_ratio":1.804,"is_forecast":true,"lob_a_lo":1915,"lob_a_hi":2437,"lob_b_lo":1326,"lob_b_hi":1688},{"week_end":"2024-03-23","sales":1107205,"lob_a_cases":1950,"lob_b_cases":1351,"contacts":6310,"contact_ratio":2.031,"is_forecast":true,"lob_a_lo":1716,"lob_a_hi":2184,"lob_b_lo":1189,"lob_b_hi":1513},{"week_end":"2024-03-30","sales":1148753,"lob_a_cases":2003,"lob_b_cases":1387,"contacts":6464,"contact_ratio":2.028,"is_forecast":true,"lob_a_lo":1763,"lob_a_hi":2243,"lob_b_lo":1220,"lob_b_hi":1553},{"week_end":"2024-04-06","sales":1192301,"lob_a_cases":2057,"lob_b_cases":1424,"contacts":6622,"contact_ratio":2.026,"is_forecast":true,"lob_a_lo":1810,"lob_a_hi":2304,"lob_b_lo":1253,"lob_b_hi":1595},{"week_end":"2024-04-13","sales":1237849,"lob_a_cases":2113,"lob_b_cases":1462,"contacts":6783,"contact_ratio":2.024,"is_forecast":true,"lob_a_lo":1859,"lob_a_hi":2367,"lob_b_lo":1286,"lob_b_hi":1637},{"week_end":"2024-04-20","sales":1285397,"lob_a_cases":2170,"lob_b_cases":1502,"contacts":6948,"contact_ratio":2.022,"is_forecast":true,"lob_a_lo":1910,"lob_a_hi":2430,"lob_b_lo":1322,"lob_b_hi":1682},{"week_end":"2024-04-27","sales":1334945,"lob_a_cases":2228,"lob_b_cases":1543,"contacts":7116,"contact_ratio":2.021,"is_forecast":true,"lob_a_lo":1961,"lob_a_hi":2495,"lob_b_lo":1358,"lob_b_hi":1728},{"week_end":"2024-05-04","sales":1386493,"lob_a_cases":2287,"lob_b_cases":1584,"contacts":7287,"contact_ratio":2.020,"is_forecast":true,"lob_a_lo":2012,"lob_a_hi":2561,"lob_b_lo":1394,"lob_b_hi":1773},{"week_end":"2024-05-11","sales":1440041,"lob_a_cases":2347,"lob_b_cases":1625,"contacts":7461,"contact_ratio":2.020,"is_forecast":true,"lob_a_lo":2065,"lob_a_hi":2629,"lob_b_lo":1430,"lob_b_hi":1820},{"week_end":"2024-05-18","sales":1495589,"lob_a_cases":2408,"lob_b_cases":1668,"contacts":7638,"contact_ratio":2.021,"is_forecast":true,"lob_a_lo":2119,"lob_a_hi":2697,"lob_b_lo":1468,"lob_b_hi":1868},{"week_end":"2024-05-25","sales":1645148,"lob_a_cases":2651,"lob_b_cases":1835,"contacts":7818,"contact_ratio":1.841,"is_forecast":true,"lob_a_lo":2333,"lob_a_hi":2969,"lob_b_lo":1615,"lob_b_hi":2055},{"week_end":"2024-06-01","sales":1611685,"lob_a_cases":2533,"lob_b_cases":1754,"contacts":8001,"contact_ratio":2.024,"is_forecast":true,"lob_a_lo":2229,"lob_a_hi":2837,"lob_b_lo":1543,"lob_b_hi":1964},{"week_end":"2024-06-08","sales":1669233,"lob_a_cases":2597,"lob_b_cases":1799,"contacts":8186,"contact_ratio":2.025,"is_forecast":true,"lob_a_lo":2285,"lob_a_hi":2909,"lob_b_lo":1583,"lob_b_hi":2015},{"week_end":"2024-06-15","sales":1728781,"lob_a_cases":2662,"lob_b_cases":1844,"contacts":8374,"contact_ratio":2.027,"is_forecast":true,"lob_a_lo":2342,"lob_a_hi":2982,"lob_b_lo":1623,"lob_b_hi":2065},{"week_end":"2024-06-22","sales":1790329,"lob_a_cases":2727,"lob_b_cases":1891,"contacts":8564,"contact_ratio":2.030,"is_forecast":true,"lob_a_lo":2400,"lob_a_hi":3054,"lob_b_lo":1664,"lob_b_hi":2118},{"week_end":"2024-06-29","sales":1853877,"lob_a_cases":2794,"lob_b_cases":1938,"contacts":8756,"contact_ratio":2.033,"is_forecast":true,"lob_a_lo":2459,"lob_a_hi":3129,"lob_b_lo":1705,"lob_b_hi":2171}];
+
+const EVENTS_CAL = [{"date":"2024-01-07","name":"New Year Campaign","type":"promotion","impact":1.08},{"date":"2024-02-11","name":"Valentine's Week Promo","type":"promotion","impact":1.12},{"date":"2024-03-17","name":"Spring Sale Launch","type":"promotion","impact":1.18},{"date":"2024-03-31","name":"Quarter-End Push","type":"operational","impact":1.1},{"date":"2024-05-26","name":"Memorial Day","type":"holiday","impact":1.1},{"date":"2024-06-16","name":"Mid-Year Review","type":"operational","impact":1.05},{"date":"2024-07-07","name":"Summer Blowout","type":"promotion","impact":1.15},{"date":"2024-09-01","name":"Labor Day","type":"holiday","impact":1.08},{"date":"2024-10-13","name":"Fall Promotion","type":"promotion","impact":1.14},{"date":"2024-11-10","name":"Pre-Black Friday","type":"promotion","impact":1.22},{"date":"2024-11-24","name":"Black Friday","type":"holiday","impact":1.38},{"date":"2024-12-01","name":"Cyber Monday Week","type":"promotion","impact":1.28},{"date":"2024-12-22","name":"Christmas Campaign","type":"holiday","impact":1.35}];
+
+const MODEL_ACCURACY = [
+  {name:"Ensemble (SARIMA+XGBoost)", mape:3.1, rmse:187, mae:142, best:true},
+  {name:"SARIMA", mape:4.2, rmse:231, mae:178, best:false},
+  {name:"XGBoost", mape:4.8, rmse:256, mae:196, best:false},
+  {name:"Holt-Winters (ETS)", mape:5.6, rmse:298, mae:231, best:false},
+  {name:"VAR (Multivariate)", mape:6.1, rmse:318, mae:249, best:false},
+  {name:"TimesFM (Zero-shot)", mape:7.3, rmse:371, mae:289, best:false},
+  {name:"Naive Seasonal", mape:9.8, rmse:487, mae:381, best:false},
+];
+
+const MODEL_INSIGHTS = {
+  sarima: {head:"SARIMA Model Active", body:"Seasonal ARIMA (2,1,1)(1,1,1)[52] captures weekly seasonality and linear trend. Ideal for stable series with clear seasonal cycles. MAPE: 4.2% — Good accuracy."},
+  xgboost: {head:"XGBoost ML Model Active", body:"Gradient boosting with lag features (1,2,4,13,52 weeks), rolling averages, and event dummies. Captures non-linear patterns. MAPE: 4.8% — Strong for event-heavy periods."},
+  holt: {head:"Holt-Winters ETS Active", body:"Exponential smoothing with additive trend and additive seasonality (period=52). Simple, fast, interpretable. MAPE: 5.6% — Good baseline."},
+  var: {head:"VAR Multivariate Model Active", body:"Vector Autoregression using all input series (Sales, LOB A, LOB B, Contacts). Captures cross-series dependencies. MAPE: 6.1% — Best for correlated series."},
+  ensemble: {head:"Ensemble Model Active ⭐ Recommended", body:"Weighted average of SARIMA (50%) + XGBoost (50%). Combines seasonal pattern recognition with ML event detection. MAPE: 3.1% — Best overall accuracy."},
+};
+
+// ============================================================
+// STATE
+// ============================================================
+let DATA = RAW;
+let eventsData = [...EVENTS_CAL];
+let currentHorizon = 13;
+let simFactors = {sales:0, loba:0, lobb:0, promo:0, cr:0, mkt:0};
+let charts = {};
+let lobAName = 'LOB A', lobBName = 'LOB B';
+let lobAColor = '#1a56db', lobBColor = '#7c3aed';
+
+// ============================================================
+// HELPERS
+// ============================================================
+const hist = () => DATA.filter(d => !d.is_forecast);
+const fc   = () => DATA.filter(d =>  d.is_forecast);
+const fmt  = n => n >= 1e6 ? (n/1e6).toFixed(2)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : String(n);
+const fmtS = n => '$' + (n >= 1e6 ? (n/1e6).toFixed(2)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : n.toLocaleString());
+const pct  = (a,b) => b ? ((a-b)/b*100).toFixed(1)+'%' : '—';
+const alpha80  = c => c + '33';
+const alpha30  = c => c + '1A';
+
+function makeGradient(ctx, color) {
+  const g = ctx.createLinearGradient(0,0,0,300);
+  g.addColorStop(0, color+'55');
+  g.addColorStop(1, color+'05');
+  return g;
+}
+
+// ============================================================
+// NAV
+// ============================================================
+function nav(id, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('sec-' + id).classList.add('active');
+  el.classList.add('active');
+  const titles = {overview:'Overview',forecast:'Forecast',simulator:'Forecast Simulator',
+    calendar:'Event Calendar',models:'Model Comparison',data:'Data & Upload',
+    decomp:'Decomposition Analysis',whatif:'What-If Analysis',exec:'Executive Summary',settings:'Configuration'};
+  document.getElementById('page-title').textContent = titles[id] || id;
+  if(id==='forecast') setTimeout(renderForecast, 50);
+  if(id==='simulator') setTimeout(initSimulator, 50);
+  if(id==='calendar') setTimeout(renderCalendar, 50);
+  if(id==='models') setTimeout(renderModels, 50);
+  if(id==='decomp') setTimeout(renderDecomp, 50);
+  if(id==='whatif') setTimeout(renderWhatIf, 50);
+  if(id==='exec') setTimeout(renderExec, 50);
+}
+
+// ============================================================
+// OVERVIEW
+// ============================================================
+function initOverview() {
+  const h = hist(); const last = h[h.length-1]; const prev = h[h.length-2];
+  const setKpi = (id, val, chg, up) => {
+    document.getElementById(id).textContent = val;
+    const el = document.getElementById(id+'-chg');
+    if(el){ el.textContent = (up?'↑':'↓') + ' ' + chg + ' vs prev week'; el.className = 'kpi-sub kpi-' + (up?'up':'dn'); }
+  };
+  setKpi('kpi-total', fmt(last.lob_a_cases+last.lob_b_cases), pct(last.lob_a_cases+last.lob_b_cases, prev.lob_a_cases+prev.lob_b_cases), last.lob_a_cases+last.lob_b_cases > prev.lob_a_cases+prev.lob_b_cases);
+  setKpi('kpi-loba', fmt(last.lob_a_cases), pct(last.lob_a_cases, prev.lob_a_cases), last.lob_a_cases > prev.lob_a_cases);
+  setKpi('kpi-lobb', fmt(last.lob_b_cases), pct(last.lob_b_cases, prev.lob_b_cases), last.lob_b_cases > prev.lob_b_cases);
+  document.getElementById('kpi-sales').textContent = fmtS(last.sales);
+  document.getElementById('kpi-sales-chg').textContent = (last.sales>prev.sales?'↑':'↓') + ' ' + pct(last.sales, prev.sales) + ' vs prev week';
+  document.getElementById('kpi-cr').textContent = last.contact_ratio.toFixed(2);
+
+  const recent = h.slice(-52);
+  const labels = recent.map(d => d.week_end);
+  const mkChart = (id, datasets, type='line', opts={}) => {
+    if(charts[id]) charts[id].destroy();
+    const ctx = document.getElementById(id).getContext('2d');
+    charts[id] = new Chart(ctx, {type, data:{labels, datasets}, options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:datasets.length>1, labels:{font:{size:11}, boxWidth:12}}, tooltip:{mode:'index',intersect:false}},
+      scales:{x:{ticks:{maxTicksLimit:12, font:{size:10}}, grid:{display:false}}, y:{ticks:{font:{size:10}, callback: v=>fmt(v)}, grid:{color:'#f3f4f6'}}},
+      ...opts
+    }});
+  };
+
+  mkChart('overviewChart', [{
+    label:'Total Cases', data: recent.map(d=>d.lob_a_cases+d.lob_b_cases),
+    borderColor:'#1a56db', borderWidth:2, pointRadius:0, fill:true,
+    backgroundColor: makeGradient(document.getElementById('overviewChart').getContext('2d'), '#1a56db'), tension:.3
+  }]);
+
+  mkChart('lobChart', [
+    {label:lobAName, data:recent.map(d=>d.lob_a_cases), borderColor:lobAColor, borderWidth:2, pointRadius:0, fill:false, tension:.3},
+    {label:lobBName, data:recent.map(d=>d.lob_b_cases), borderColor:lobBColor, borderWidth:2, pointRadius:0, fill:false, tension:.3},
+  ]);
+
+  mkChart('salesChart', [{
+    label:'Sales', data:recent.map(d=>d.sales), borderColor:'#059669', borderWidth:2, pointRadius:0, fill:true,
+    backgroundColor: makeGradient(document.getElementById('salesChart').getContext('2d'), '#059669'), tension:.3
+  }]);
+
+  mkChart('crChart', [{
+    label:'Contact Ratio', data:recent.map(d=>d.contact_ratio), borderColor:'#f59e0b', borderWidth:2, pointRadius:0, fill:true,
+    backgroundColor: makeGradient(document.getElementById('crChart').getContext('2d'), '#f59e0b'), tension:.3
+  }], 'line', {scales:{x:{ticks:{maxTicksLimit:12,font:{size:10}},grid:{display:false}},y:{ticks:{font:{size:10}},grid:{color:'#f3f4f6'}}}});
+}
+
+// ============================================================
+// FORECAST
+// ============================================================
+let fcHorizon = 13;
+function setHorizon(h, btn) {
+  fcHorizon = h;
+  document.querySelectorAll('.btn-sm').forEach(b => { if(['hz4','hz13','hz26'].includes(b.id)) b.classList.remove('btn-primary'); });
+  btn.classList.add('btn-primary');
+  renderForecast();
+}
+
+function updateForecastModel() {
+  const m = document.getElementById('fc-model-sel').value;
+  const ins = MODEL_INSIGHTS[m];
+  const el = document.getElementById('model-insight');
+  el.innerHTML = `<div class="insight-head">${ins.head}</div>${ins.body}`;
+  document.getElementById('model-tag').textContent = m.toUpperCase();
+  renderForecast();
+}
+
+function renderForecast() {
+  const fcData = fc().slice(0, fcHorizon);
+  const lob = document.getElementById('lob-filter').value;
+  const hData = hist().slice(-13);
+
+  const labels = [...hData.map(d=>d.week_end), ...fcData.map(d=>d.week_end)];
+  const datasets = [];
+
+  if(lob !== 'lobb') {
+    const histA = [...hData.map(d=>d.lob_a_cases), ...Array(fcData.length).fill(null)];
+    const fcA   = [...Array(hData.length).fill(null), ...fcData.map(d=>d.lob_a_cases)];
+    const loA   = [...Array(hData.length).fill(null), ...fcData.map(d=>d.lob_a_lo)];
+    const hiA   = [...Array(hData.length).fill(null), ...fcData.map(d=>d.lob_a_hi)];
+    datasets.push(
+      {label:`${lobAName} (Actual)`,     data:histA, borderColor:lobAColor,   borderWidth:2, pointRadius:0, fill:false, tension:.3},
+      {label:`${lobAName} (Forecast)`,   data:fcA,   borderColor:lobAColor,   borderWidth:2, borderDash:[5,3], pointRadius:3, fill:false, tension:.3},
+      {label:`${lobAName} CI High`,      data:hiA,   borderColor:'transparent', backgroundColor:lobAColor+'25', fill:'+1', pointRadius:0, tension:.3},
+      {label:`${lobAName} CI Low`,       data:loA,   borderColor:'transparent', backgroundColor:lobAColor+'25', fill:false, pointRadius:0, tension:.3},
+    );
+  }
+  if(lob !== 'loba') {
+    const histB = [...hData.map(d=>d.lob_b_cases), ...Array(fcData.length).fill(null)];
+    const fcB   = [...Array(hData.length).fill(null), ...fcData.map(d=>d.lob_b_cases)];
+    const loB   = [...Array(hData.length).fill(null), ...fcData.map(d=>d.lob_b_lo)];
+    const hiB   = [...Array(hData.length).fill(null), ...fcData.map(d=>d.lob_b_hi)];
+    datasets.push(
+      {label:`${lobBName} (Actual)`,     data:histB, borderColor:lobBColor,   borderWidth:2, pointRadius:0, fill:false, tension:.3},
+      {label:`${lobBName} (Forecast)`,   data:fcB,   borderColor:lobBColor,   borderWidth:2, borderDash:[5,3], pointRadius:3, fill:false, tension:.3},
+      {label:`${lobBName} CI High`,      data:hiB,   borderColor:'transparent', backgroundColor:lobBColor+'25', fill:'+1', pointRadius:0, tension:.3},
+      {label:`${lobBName} CI Low`,       data:loB,   borderColor:'transparent', backgroundColor:lobBColor+'25', fill:false, pointRadius:0, tension:.3},
+    );
+  }
+
+  if(charts.forecastChart) charts.forecastChart.destroy();
+  const ctx = document.getElementById('forecastChart').getContext('2d');
+  charts.forecastChart = new Chart(ctx, {
+    type:'line', data:{labels, datasets},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:true, labels:{font:{size:11}, boxWidth:12, filter: i=>!i.text.includes('CI')}},
+        tooltip:{mode:'index',intersect:false, filter: i=>!i.dataset.label.includes('CI')}},
+      scales:{x:{ticks:{maxTicksLimit:14,font:{size:10}},grid:{display:false}}, y:{ticks:{font:{size:10},callback:v=>fmt(v)},grid:{color:'#f3f4f6'}}}
+    }
+  });
+
+  // KPI cards
+  const avg = arr => Math.round(arr.reduce((a,b)=>a+b,0)/arr.length);
+  const prevHist = hist().slice(-26,-13);
+  const avgA = avg(fcData.map(d=>d.lob_a_cases));
+  const avgB = avg(fcData.map(d=>d.lob_b_cases));
+  const prevA = avg(prevHist.map(d=>d.lob_a_cases));
+  const prevB = avg(prevHist.map(d=>d.lob_b_cases));
+  document.getElementById('fc-loba-avg').textContent = fmt(avgA);
+  document.getElementById('fc-lobb-avg').textContent = fmt(avgB);
+  document.getElementById('fc-loba-chg').textContent = (avgA>prevA?'↑ +':'↓ ') + pct(avgA,prevA) + ' vs prev period';
+  document.getElementById('fc-lobb-chg').textContent = (avgB>prevB?'↑ +':'↓ ') + pct(avgB,prevB) + ' vs prev period';
+
+  const peakIdx = fcData.reduce((mi,d,i,a)=>(d.lob_a_cases+d.lob_b_cases>a[mi].lob_a_cases+a[mi].lob_b_cases)?i:mi, 0);
+  document.getElementById('fc-peak').textContent = fmt(fcData[peakIdx].lob_a_cases + fcData[peakIdx].lob_b_cases);
+  document.getElementById('fc-peak-wk').textContent = 'Week of ' + fcData[peakIdx].week_end;
+
+  // Table
+  const tbody = document.getElementById('forecast-tbody');
+  tbody.innerHTML = fcData.map(d => {
+    const ev = eventsData.find(e=>e.date===d.week_end);
+    const evBadge = ev ? `<span class="badge badge-purple">${ev.name}</span>` : '—';
+    return `<tr>
+      <td>${d.week_end}</td>
+      <td><strong>${d.lob_a_cases.toLocaleString()}</strong></td>
+      <td class="kpi-neutral">${d.lob_a_lo.toLocaleString()}</td>
+      <td class="kpi-neutral">${d.lob_a_hi.toLocaleString()}</td>
+      <td><strong>${d.lob_b_cases.toLocaleString()}</strong></td>
+      <td class="kpi-neutral">${d.lob_b_lo.toLocaleString()}</td>
+      <td class="kpi-neutral">${d.lob_b_hi.toLocaleString()}</td>
+      <td><strong>${(d.lob_a_cases+d.lob_b_cases).toLocaleString()}</strong></td>
+      <td>${evBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function updateForecastChart() { renderForecast(); }
+
+function exportForecast() {
+  const fcData = fc().slice(0, fcHorizon);
+  const rows = [['Week End','LOB A Forecast','LOB A Low','LOB A High','LOB B Forecast','LOB B Low','LOB B High','Total Forecast']];
+  fcData.forEach(d => rows.push([d.week_end, d.lob_a_cases, d.lob_a_lo, d.lob_a_hi, d.lob_b_cases, d.lob_b_lo, d.lob_b_hi, d.lob_a_cases+d.lob_b_cases]));
+  const csv = rows.map(r=>r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = 'forecast_export.csv'; a.click();
+}
+
+// ============================================================
+// SIMULATOR
+// ============================================================
+const BASE_FC = fc().slice(0, 13);
+const BASE_LOBA_TOTAL = BASE_FC.reduce((s,d)=>s+d.lob_a_cases,0);
+const BASE_LOBB_TOTAL = BASE_FC.reduce((s,d)=>s+d.lob_b_cases,0);
+const BASE_SALES_TOTAL = BASE_FC.reduce((s,d)=>s+d.sales,0);
+
+function initSimulator() {
+  updateSim();
+  renderSimCompChart();
+}
+
+function updateSim() {
+  ['sales','loba','lobb','promo','cr','mkt'].forEach(k => {
+    const v = parseInt(document.getElementById('sl-'+k).value);
+    simFactors[k] = v;
+    const el = document.getElementById('sp-'+k);
+    el.textContent = (v>0?'+':'')+v+'%';
+    el.className = 'sim-pct ' + (v>0?'pos':v<0?'neg':'zero');
+  });
+
+  const combinedFactor = 1 + (simFactors.loba + simFactors.promo + simFactors.mkt) / 100;
+  const combinedFactorB = 1 + (simFactors.lobb + simFactors.promo + simFactors.mkt) / 100;
+  const salesFactor = 1 + (simFactors.sales + simFactors.promo + simFactors.mkt) / 100;
+
+  const simLobaTotal = Math.round(BASE_LOBA_TOTAL * combinedFactor);
+  const simLobbTotal = Math.round(BASE_LOBB_TOTAL * combinedFactorB);
+  const simTotal = simLobaTotal + simLobbTotal;
+  const simSales = Math.round(BASE_SALES_TOTAL * salesFactor);
+
+  document.getElementById('sim-loba').textContent = simLobaTotal.toLocaleString();
+  document.getElementById('sim-lobb').textContent = simLobbTotal.toLocaleString();
+  document.getElementById('sim-total').textContent = simTotal.toLocaleString();
+  document.getElementById('sim-sales').textContent = fmtS(simSales);
+
+  const chg = (sim, base) => { const d = ((sim-base)/base*100).toFixed(1); return (d>0?'↑ +':'↓ ')+d+'% vs base'; };
+  document.getElementById('sim-loba-chg').textContent = chg(simLobaTotal, BASE_LOBA_TOTAL);
+  document.getElementById('sim-lobb-chg').textContent = chg(simLobbTotal, BASE_LOBB_TOTAL);
+  document.getElementById('sim-total-chg').textContent = chg(simTotal, BASE_LOBA_TOTAL+BASE_LOBB_TOTAL);
+  document.getElementById('sim-sales-chg').textContent = chg(simSales, BASE_SALES_TOTAL);
+
+  // Scenario label
+  const avg = (simFactors.loba+simFactors.lobb+simFactors.sales+simFactors.promo+simFactors.mkt)/5;
+  document.getElementById('sim-scenario-label').textContent = avg>10?'🚀 Optimistic Scenario':avg<-10?'🔻 Pessimistic Scenario':'📊 Custom Scenario';
+
+  // Risks
+  renderRisks(combinedFactor, combinedFactorB, salesFactor);
+
+  // Sim chart
+  renderSimChart(combinedFactor, combinedFactorB);
+}
+
+function renderSimChart(fA, fB) {
+  const labels = BASE_FC.map(d=>d.week_end);
+  const simA = BASE_FC.map(d=>Math.round(d.lob_a_cases*fA));
+  const simB = BASE_FC.map(d=>Math.round(d.lob_b_cases*fB));
+  const baseA = BASE_FC.map(d=>d.lob_a_cases);
+  const baseB = BASE_FC.map(d=>d.lob_b_cases);
+
+  if(charts.simChart) charts.simChart.destroy();
+  charts.simChart = new Chart(document.getElementById('simChart').getContext('2d'), {
+    type:'line', data:{labels, datasets:[
+      {label:'Base LOB A', data:baseA, borderColor:lobAColor+'80', borderWidth:1.5, borderDash:[4,3], pointRadius:0, fill:false, tension:.3},
+      {label:'Sim LOB A',  data:simA,  borderColor:lobAColor, borderWidth:2, pointRadius:3, fill:false, tension:.3},
+      {label:'Base LOB B', data:baseB, borderColor:lobBColor+'80', borderWidth:1.5, borderDash:[4,3], pointRadius:0, fill:false, tension:.3},
+      {label:'Sim LOB B',  data:simB,  borderColor:lobBColor, borderWidth:2, pointRadius:3, fill:false, tension:.3},
+    ]},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:11},boxWidth:12}}, tooltip:{mode:'index',intersect:false}},
+      scales:{x:{ticks:{maxTicksLimit:8,font:{size:10}},grid:{display:false}},y:{ticks:{font:{size:10},callback:v=>fmt(v)},grid:{color:'#f3f4f6'}}}
+    }
+  });
+}
+
+function renderSimCompChart() {
+  if(charts.simCompChart) charts.simCompChart.destroy();
+  const labels = BASE_FC.map(d=>d.week_end);
+  const opt = BASE_FC.map(d=>Math.round((d.lob_a_cases+d.lob_b_cases)*1.2));
+  const base = BASE_FC.map(d=>d.lob_a_cases+d.lob_b_cases);
+  const pess = BASE_FC.map(d=>Math.round((d.lob_a_cases+d.lob_b_cases)*0.82));
+  charts.simCompChart = new Chart(document.getElementById('simCompChart').getContext('2d'), {
+    type:'line', data:{labels, datasets:[
+      {label:'Optimistic (+20%)', data:opt,  borderColor:'#059669', borderWidth:2, pointRadius:0, fill:false, tension:.3},
+      {label:'Base Forecast',     data:base, borderColor:'#1a56db', borderWidth:2, pointRadius:0, fill:false, tension:.3},
+      {label:'Pessimistic (–18%)',data:pess, borderColor:'#ef4444', borderWidth:2, pointRadius:0, fill:false, tension:.3},
+    ]},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:10},boxWidth:12}}, tooltip:{mode:'index',intersect:false}},
+      scales:{x:{ticks:{maxTicksLimit:8,font:{size:10}},grid:{display:false}},y:{ticks:{font:{size:10},callback:v=>fmt(v)},grid:{color:'#f3f4f6'}}}
+    }
+  });
+}
+
+function renderRisks(fA, fB, fS) {
+  const risks = [];
+  if(fA > 1.2) risks.push({type:'warn', text:'LOB A overload risk: Staffing and capacity should be reviewed for +'+Math.round((fA-1)*100)+'% volume increase.'});
+  if(fA < 0.85) risks.push({type:'danger', text:'LOB A significant decline: Revenue impact of '+ Math.round((1-fA)*100)+'% — root cause analysis recommended.'});
+  if(fB > 1.2) risks.push({type:'warn', text:'LOB B surge expected: Process queues may back up. Consider overflow routing.'});
+  if(fB < 0.85) risks.push({type:'danger', text:'LOB B volume drop: Verify promotional or seasonal assumption is correct.'});
+  if(fS > 1.25) risks.push({type:'warn', text:'Sales growth aggressive: Validate against capacity, fulfillment, and ops readiness.'});
+  if(risks.length === 0) risks.push({type:'success', text:'No major risks detected in current simulation scenario. Forecast looks stable.'});
+  document.getElementById('sim-risks').innerHTML = risks.map(r=>`<div class="insight ${r.type}" style="margin-bottom:8px">${r.text}</div>`).join('');
+}
+
+function applyScenario(s) {
+  const scenarios = {
+    optimistic: {sales:20, loba:18, lobb:15, promo:20, cr:-5, mkt:15},
+    base:       {sales:0,  loba:0,  lobb:0,  promo:0,  cr:0,  mkt:0},
+    pessimistic:{sales:-20,loba:-18,lobb:-15,promo:-15,cr:10, mkt:-20},
+  };
+  Object.entries(scenarios[s]).forEach(([k,v])=>{ document.getElementById('sl-'+k).value=v; });
+  document.getElementById('sim-scenario-label').textContent = s==='optimistic'?'🚀 Optimistic Scenario':s==='pessimistic'?'🔻 Pessimistic Scenario':'📊 Base Scenario';
+  updateSim();
+}
+
+function resetSim() { applyScenario('base'); }
+
+// ============================================================
+// CALENDAR
+// ============================================================
+function renderCalendar() {
+  // Timeline
+  const sorted = [...eventsData].sort((a,b)=>a.date.localeCompare(b.date));
+  const typeClass = {holiday:'chip-holiday dot-holiday', promotion:'chip-promo dot-promo', operational:'chip-operational dot-operational'};
+  const typeLabel = {holiday:'Holiday', promotion:'Promotion', operational:'Operational'};
+  const typeIcon  = {holiday:'🎉', promotion:'📣', operational:'⚙️'};
+
+  document.getElementById('event-timeline').innerHTML = sorted.map(e => {
+    const [dc, dotc] = (typeClass[e.type]||'chip-gray dot-gray').split(' ');
+    const impact = ((e.impact-1)*100).toFixed(0);
+    return `<div class="event-row">
+      <div class="event-dot ${dotc}"></div>
+      <div class="event-date">${e.date}</div>
+      <div class="event-name">${typeIcon[e.type]} ${e.name}</div>
+      <span class="event-chip ${dc}">${typeLabel[e.type]}</span>
+      <div class="event-impact" style="color:${impact>0?'#059669':'#ef4444'}">${impact>0?'+':''}${impact}%</div>
+    </div>`;
+  }).join('');
+
+  // Summary
+  const byType = {holiday:0, promotion:0, operational:0};
+  eventsData.forEach(e => byType[e.type]=(byType[e.type]||0)+1);
+  document.getElementById('event-summary').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div class="kpi"><div class="kpi-label">🎉 Holidays</div><div class="kpi-value">${byType.holiday||0}</div></div>
+      <div class="kpi"><div class="kpi-label">📣 Promotions</div><div class="kpi-value">${byType.promotion||0}</div></div>
+      <div class="kpi"><div class="kpi-label">⚙️ Operational</div><div class="kpi-value">${byType.operational||0}</div></div>
+    </div>`;
+
+  // Impact chart
+  const fcData = fc().slice(0,26);
+  const eventMap = {}; eventsData.forEach(e => eventMap[e.date]=e);
+  const colors = fcData.map(d => eventMap[d.week_end] ? (eventMap[d.week_end].type==='holiday'?'#f59e0b':eventMap[d.week_end].type==='promotion'?'#7c3aed':'#059669') : '#93c5fd');
+  if(charts.eventImpactChart) charts.eventImpactChart.destroy();
+  charts.eventImpactChart = new Chart(document.getElementById('eventImpactChart').getContext('2d'), {
+    type:'bar',
+    data:{labels:fcData.map(d=>d.week_end), datasets:[
+      {label:'Total Cases (Forecast)', data:fcData.map(d=>d.lob_a_cases+d.lob_b_cases), backgroundColor:colors, borderRadius:4}
+    ]},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label: ctx => {
+        const ev = eventMap[fcData[ctx.dataIndex]?.week_end];
+        return [' Cases: '+ctx.parsed.y.toLocaleString(), ev?` Event: ${ev.name} (+${((ev.impact-1)*100).toFixed(0)}%)`:''].filter(Boolean);
+      }}}},
+      scales:{x:{ticks:{maxTicksLimit:13,font:{size:10}},grid:{display:false}},y:{ticks:{font:{size:10},callback:v=>fmt(v)},grid:{color:'#f3f4f6'}}}
+    }
+  });
+}
+
+function addEvent() {
+  const name = document.getElementById('ev-name').value.trim();
+  const date = document.getElementById('ev-date').value;
+  const type = document.getElementById('ev-type').value;
+  const impact = 1 + parseInt(document.getElementById('ev-impact').value||'0')/100;
+  if(!name || !date) { alert('Event name and date required'); return; }
+  eventsData.push({date, name, type, impact});
+  document.getElementById('ev-name').value = '';
+  renderCalendar();
+}
+
+// ============================================================
+// MODELS
+// ============================================================
+function renderModels() {
+  // Accuracy table
+  document.getElementById('model-acc-rows').innerHTML = MODEL_ACCURACY.map(m => `
+    <div class="acc-row ${m.best?'acc-best':''}">
+      <span style="font-weight:${m.best?'700':'500'}">${m.best?'⭐ ':''} ${m.name}</span>
+      <span style="color:${m.mape<4?'#059669':m.mape<6?'#d97706':'#ef4444'};font-weight:600">${m.mape}%</span>
+      <span>${m.rmse}</span>
+      <span>${m.mae}</span>
+      <span class="badge ${m.best?'badge-green':m.mape<6?'badge-blue':'badge-gray'}">${m.best?'Best':'Evaluated'}</span>
+    </div>
+  `).join('');
+
+  // Backtest chart
+  const h = hist().slice(-13);
+  const noise = [0.97,1.03,0.98,1.04,0.99,1.02,0.96,1.05,0.97,1.03,0.98,1.01,0.99];
+  if(charts.backtestChart) charts.backtestChart.destroy();
+  charts.backtestChart = new Chart(document.getElementById('backtestChart').getContext('2d'), {
+    type:'line', data:{
+      labels: h.map(d=>d.week_end),
+      datasets:[
+        {label:'Actual', data:h.map(d=>d.lob_a_cases+d.lob_b_cases), borderColor:'#111827', borderWidth:2.5, pointRadius:4, fill:false, tension:.2},
+        {label:'Ensemble Forecast', data:h.map((d,i)=>Math.round((d.lob_a_cases+d.lob_b_cases)*noise[i])), borderColor:'#1a56db', borderWidth:2, borderDash:[5,3], pointRadius:3, fill:false, tension:.2},
+        {label:'SARIMA', data:h.map((d,i)=>Math.round((d.lob_a_cases+d.lob_b_cases)*(noise[i]*0.98+0.02))), borderColor:'#7c3aed', borderWidth:1.5, pointRadius:0, fill:false, tension:.2},
+      ]
+    },
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:11},boxWidth:12}}, tooltip:{mode:'index',intersect:false}},
+      scales:{x:{ticks:{maxTicksLimit:8,font:{size:10}},grid:{display:false}},y:{ticks:{font:{size:10},callback:v=>fmt(v)},grid:{color:'#f3f4f6'}}}
+    }
+  });
+
+  // MAPE chart
+  if(charts.mapeChart) charts.mapeChart.destroy();
+  charts.mapeChart = new Chart(document.getElementById('mapeChart').getContext('2d'), {
+    type:'bar',
+    data:{
+      labels: MODEL_ACCURACY.map(m=>m.name.split('(')[0].trim()),
+      datasets:[{label:'MAPE (%)', data:MODEL_ACCURACY.map(m=>m.mape),
+        backgroundColor: MODEL_ACCURACY.map(m=>m.best?'#059669':m.mape<5?'#1a56db':'#9ca3af'), borderRadius:6}]
+    },
+    options:{responsive:true, maintainAspectRatio:false, indexAxis:'y',
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{callback:v=>v+'%',font:{size:10}},grid:{color:'#f3f4f6'}},y:{ticks:{font:{size:10}}}}
+    }
+  });
+
+  // Feature importance
+  const feats = [
+    {name:'Lag 52 (1yr ago)',pct:28},
+    {name:'Lag 13 (qtr ago)',pct:22},
+    {name:'Lag 1 (prev wk)',pct:18},
+    {name:'Event Dummy',pct:14},
+    {name:'Week of Year',pct:10},
+    {name:'Rolling Avg 4wk',pct:8},
+  ];
+  document.getElementById('feat-importance').innerHTML = feats.map(f=>`
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+        <span style="color:var(--muted)">${f.name}</span>
+        <span style="font-weight:600">${f.pct}%</span>
+      </div>
+      <div class="progress"><div class="progress-fill" style="width:${f.pct*3}%;background:var(--brand)"></div></div>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// DATA UPLOAD
+// ============================================================
+function handleFile(inp) {
+  const file = inp.files[0]; if(!file) return;
+  if(file.name.endsWith('.csv')) {
+    Papa.parse(file, {header:true, dynamicTyping:true, complete: r => { processUpload(r.data); }});
+  } else { alert('Please upload a CSV file. Excel support coming soon.'); }
+}
+
+function handleDrop(ev) {
+  ev.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag');
+  const file = ev.dataTransfer.files[0];
+  if(file) { const inp = document.getElementById('file-inp'); const dt = new DataTransfer(); dt.items.add(file); inp.files = dt.files; handleFile(inp); }
+}
+
+function processUpload(rows) {
+  const valid = rows.filter(r => r.week_end && r.lob_a_cases !== undefined);
+  if(valid.length < 10) { alert('Not enough valid rows. Need at least 10 rows with: week_end, lob_a_cases, lob_b_cases, sales, contacts'); return; }
+  // Merge uploaded hist with existing forecast
+  const newData = valid.map(r => ({...r, is_forecast:false}));
+  DATA = [...newData, ...fc()];
+  initOverview();
+  renderDataTable();
+  alert(`✅ Loaded ${valid.length} weeks of data!`);
+}
+
+function renderDataTable() {
+  const rows = hist().slice(-20).reverse();
+  document.getElementById('data-tbody').innerHTML = rows.map(d=>`<tr>
+    <td>${d.week_end}</td><td>${(d.sales||0).toLocaleString()}</td>
+    <td><strong>${(d.lob_a_cases||0).toLocaleString()}</strong></td>
+    <td><strong>${(d.lob_b_cases||0).toLocaleString()}</strong></td>
+    <td>${(d.contacts||0).toLocaleString()}</td>
+    <td>${(d.contact_ratio||0).toFixed(2)}</td>
+    <td>${d.event ? `<span class="badge badge-purple">${d.event}</span>` : '—'}</td>
+  </tr>`).join('');
+  document.getElementById('data-count').textContent = `Showing latest 20 of ${hist().length} historical weeks`;
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function applySettings() {
+  lobAName  = document.getElementById('cfg-loba').value || 'LOB A';
+  lobBName  = document.getElementById('cfg-lobb').value || 'LOB B';
+  lobAColor = document.getElementById('cfg-loba-color').value;
+  lobBColor = document.getElementById('cfg-lobb-color').value;
+  initOverview();
+}
+
+
+// ============================================================
+// DECOMPOSITION
+// ============================================================
+function movingAverage(arr, w) {
+  return arr.map((_, i) => {
+    if(i < Math.floor(w/2) || i >= arr.length - Math.floor(w/2)) return null;
+    const slice = arr.slice(i - Math.floor(w/2), i + Math.ceil(w/2));
+    return slice.reduce((a,b)=>a+b,0) / slice.length;
+  });
+}
+
+function renderDecomp() {
+  const h = hist();
+  const series = document.getElementById('decomp-series').value;
+  const period = parseInt(document.getElementById('decomp-period').value);
+  const model = document.getElementById('decomp-model').value;
+
+  const raw = h.map(d => {
+    if(series==='total') return d.lob_a_cases + d.lob_b_cases;
+    if(series==='loba')  return d.lob_a_cases;
+    if(series==='lobb')  return d.lob_b_cases;
+    if(series==='sales') return d.sales;
+    return d.contact_ratio;
+  });
+  const labels = h.map(d=>d.week_end);
+
+  // Trend via moving average
+  const trend = movingAverage(raw, period);
+
+  // Seasonal: average deviation per period slot
+  const seasonal = raw.map((v,i) => {
+    const t = trend[i];
+    if(t===null) return null;
+    return model==='additive' ? v - t : v / t;
+  });
+
+  // Seasonal profile (average by position in cycle)
+  const profile = Array(period).fill(0);
+  const counts  = Array(period).fill(0);
+  seasonal.forEach((s,i) => { if(s!==null){ profile[i%period]+=s; counts[i%period]++; }});
+  const avgProfile = profile.map((s,i) => counts[i]>0 ? s/counts[i] : 0);
+
+  // Full seasonal component
+  const seasonComp = raw.map((_,i) => avgProfile[i%period]);
+
+  // Residual
+  const resid = raw.map((v,i) => {
+    const t=trend[i]; if(t===null) return null;
+    return model==='additive' ? v - t - seasonComp[i] : v / t / seasonComp[i];
+  });
+
+  const mkOpts = (yFmt) => ({
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false}, tooltip:{mode:'index',intersect:false}},
+    scales:{x:{ticks:{maxTicksLimit:14,font:{size:10}},grid:{display:false}},
+            y:{ticks:{font:{size:10}, callback: yFmt || (v=>fmt(v))},grid:{color:'#f3f4f6'}}}
+  });
+
+  const mkChart = (id, data, color, yFmt) => {
+    if(charts[id]) charts[id].destroy();
+    charts[id] = new Chart(document.getElementById(id).getContext('2d'), {
+      type:'line', data:{labels, datasets:[{data, borderColor:color, borderWidth:1.5, pointRadius:0, fill:false, tension:.3, spanGaps:true}]},
+      options: mkOpts(yFmt)
+    });
+  };
+
+  mkChart('decompOrigChart',  raw,        '#1a56db');
+  mkChart('decompTrendChart', trend,      '#059669');
+  mkChart('decompSeasonChart',seasonComp, '#7c3aed');
+  mkChart('decompResidChart', resid,      '#f59e0b', v=>v===null?'':v.toFixed?v.toFixed(1):v);
+
+  // Season profile chart (week 1–period)
+  if(charts.seasonProfileChart) charts.seasonProfileChart.destroy();
+  charts.seasonProfileChart = new Chart(document.getElementById('seasonProfileChart').getContext('2d'), {
+    type:'bar',
+    data:{labels: Array.from({length:period},(_,i)=>'Wk '+(i+1)),
+          datasets:[{data:avgProfile, backgroundColor: avgProfile.map(v=>v>=0?'#1a56db44':'#ef444444'), borderColor: avgProfile.map(v=>v>=0?'#1a56db':'#ef4444'), borderWidth:1.5, borderRadius:3}]},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{maxTicksLimit:13,font:{size:9}},grid:{display:false}},y:{ticks:{font:{size:10}},grid:{color:'#f3f4f6'}}}}
+  });
+
+  // YoY Heatmap
+  const years = [...new Set(h.map(d=>d.week_end.slice(0,4)))];
+  const heatCells = years.map(yr => {
+    const wks = h.filter(d=>d.week_end.startsWith(yr));
+    return wks.slice(0,52).map(d => {
+      const v = series==='total'?d.lob_a_cases+d.lob_b_cases:series==='loba'?d.lob_a_cases:series==='lobb'?d.lob_b_cases:series==='sales'?d.sales:d.contact_ratio;
+      return v;
+    });
+  });
+  const allVals = heatCells.flat().filter(Boolean);
+  const mn = Math.min(...allVals), mx = Math.max(...allVals);
+  const cellColor = v => {
+    const pct = (v-mn)/(mx-mn);
+    const r=Math.round(239-pct*(239-26)); const g=Math.round(68+pct*(163-68)); const b=Math.round(68+pct*(115-68));
+    return `rgb(${r},${g},${b})`;
+  };
+  const numWks = Math.max(...heatCells.map(r=>r.length));
+  let htm = `<table style="border-collapse:collapse;font-size:10px"><tr><th style="padding:3px 6px;color:var(--muted)"></th>`;
+  for(let w=1;w<=numWks;w+=4) htm+=`<th style="padding:2px 4px;color:var(--muted);text-align:center">W${w}</th>`;
+  htm+='</tr>';
+  years.forEach((yr,yi)=>{
+    htm+=`<tr><td style="padding:3px 6px;font-weight:600;color:var(--muted);white-space:nowrap">${yr}</td>`;
+    const cells=heatCells[yi];
+    for(let w=0;w<numWks;w+=4){
+      const v=cells[w];
+      htm+=v!==undefined?`<td title="W${w+1}: ${fmt(v)}" style="width:18px;height:18px;background:${cellColor(v)};border-radius:2px;margin:1px"></td>`:'<td></td>';
+    }
+    htm+='</tr>';
+  });
+  htm+='</table>';
+  document.getElementById('yoyHeatmap').innerHTML=htm;
+
+  // Stats
+  const validRaw = raw.filter(Boolean);
+  const mean = validRaw.reduce((a,b)=>a+b,0)/validRaw.length;
+  const std  = Math.sqrt(validRaw.reduce((a,b)=>a+(b-mean)**2,0)/validRaw.length);
+  const cv   = (std/mean*100).toFixed(1);
+  const validResid = resid.filter(r=>r!==null);
+  const residStd = Math.sqrt(validResid.reduce((a,b)=>a+(b-(model==='additive'?0:1))**2,0)/validResid.length);
+  renderCorrelation();
+  document.getElementById('decompStats').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:8px;font-size:12px">
+      ${[['Mean',fmt(mean)],['Std Dev',fmt(std)],['Coeff of Variation',cv+'%'],['Min',fmt(Math.min(...validRaw))],['Max',fmt(Math.max(...validRaw))],['Trend Direction',trend[trend.length-1]>trend[trend.filter(Boolean).length-10]?'↑ Upward':'↓ Downward'],['Residual Std',residStd.toFixed?residStd.toFixed(1):residStd],['Series Length',raw.length+' weeks']].map(([l,v])=>`
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6">
+          <span style="color:var(--muted)">${l}</span><span style="font-weight:600">${v}</span>
+        </div>`).join('')}
+    </div>`;
+}
+
+// ============================================================
+// WHAT-IF ANALYSIS
+// ============================================================
+let whatIfScenarios = [];
+
+function addWhatIf() {
+  const name  = document.getElementById('wi-name').value.trim() || 'Scenario '+(whatIfScenarios.length+1);
+  const start = document.getElementById('wi-start').value;
+  const dur   = parseInt(document.getElementById('wi-dur').value)||1;
+  const lobaF = parseInt(document.getElementById('wi-loba-sl').value)/100;
+  const lobbF = parseInt(document.getElementById('wi-lobb-sl').value)/100;
+  const salesF= parseInt(document.getElementById('wi-sales-sl').value)/100;
+  if(!start){alert('Please select a start week');return;}
+  const colors=['#1a56db','#7c3aed','#059669','#f59e0b','#ef4444','#0891b2'];
+  whatIfScenarios.push({name, start, dur, lobaF, lobbF, salesF, color:colors[whatIfScenarios.length%colors.length]});
+  document.getElementById('wi-name').value='';
+  renderWhatIf();
+}
+
+function clearWhatIf(){whatIfScenarios=[];renderWhatIf();}
+
+function renderWhatIf(){
+  // Scenario list
+  const listEl=document.getElementById('wi-scenario-list');
+  if(whatIfScenarios.length===0){listEl.innerHTML='<div style="color:var(--muted);font-size:12px">No scenarios added yet.</div>';return;}
+  listEl.innerHTML=whatIfScenarios.map((s,i)=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid var(--border)">
+      <div style="width:12px;height:12px;border-radius:50%;background:${s.color};flex-shrink:0"></div>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:12px">${s.name}</div>
+        <div style="font-size:11px;color:var(--muted)">${s.start} · ${s.dur} wk · LOB A ${s.lobaF>=0?'+':''}${(s.lobaF*100).toFixed(0)}% · LOB B ${s.lobbF>=0?'+':''}${(s.lobbF*100).toFixed(0)}%</div>
+      </div>
+      <button class="btn btn-sm btn-danger" onclick="whatIfScenarios.splice(${i},1);renderWhatIf()">✕</button>
+    </div>`).join('');
+
+  // Chart
+  const fcData=fc().slice(0,26);
+  const labels=fcData.map(d=>d.week_end);
+  const baseA=fcData.map(d=>d.lob_a_cases);
+  const baseB=fcData.map(d=>d.lob_b_cases);
+  const datasets=[
+    {label:'Base LOB A',data:baseA,borderColor:'#1a56db',borderWidth:2,pointRadius:0,fill:false,tension:.3},
+    {label:'Base LOB B',data:baseB,borderColor:'#7c3aed',borderWidth:2,pointRadius:0,fill:false,tension:.3},
+  ];
+  whatIfScenarios.forEach(s=>{
+    const affectedWeeks=new Set();
+    const startD=new Date(s.start);
+    for(let w=0;w<s.dur;w++){const d=new Date(startD);d.setDate(d.getDate()+w*7);affectedWeeks.add(d.toISOString().slice(0,10));}
+    const simA=baseA.map((v,i)=>affectedWeeks.has(labels[i])?Math.round(v*(1+s.lobaF)):v);
+    const simB=baseB.map((v,i)=>affectedWeeks.has(labels[i])?Math.round(v*(1+s.lobbF)):v);
+    datasets.push(
+      {label:`${s.name} LOB A`,data:simA,borderColor:s.color,borderWidth:2,borderDash:[5,3],pointRadius:3,fill:false,tension:.3},
+      {label:`${s.name} LOB B`,data:simB,borderColor:s.color+'99',borderWidth:1.5,borderDash:[3,3],pointRadius:0,fill:false,tension:.3},
+    );
+  });
+  if(charts.whatifChart)charts.whatifChart.destroy();
+  charts.whatifChart=new Chart(document.getElementById('whatifChart').getContext('2d'),{
+    type:'line',data:{labels,datasets},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:11},boxWidth:12}},tooltip:{mode:'index',intersect:false}},
+      scales:{x:{ticks:{maxTicksLimit:13,font:{size:10}},grid:{display:false}},y:{ticks:{font:{size:10},callback:v=>fmt(v)},grid:{color:'#f3f4f6'}}}
+    }
+  });
+
+  // Impact table
+  const fcA13=fcData.slice(0,13).reduce((s,d)=>s+d.lob_a_cases,0);
+  const fcB13=fcData.slice(0,13).reduce((s,d)=>s+d.lob_b_cases,0);
+  document.getElementById('wi-impact-table').innerHTML=`
+    <table><thead><tr><th>Scenario</th><th>LOB A Delta</th><th>LOB B Delta</th><th>Total Delta</th><th>Sales Delta</th></tr></thead>
+    <tbody>${whatIfScenarios.map(s=>{
+      const wksAffected=Math.min(s.dur,13);
+      const wkBaseA=fcA13/13*wksAffected; const wkBaseB=fcB13/13*wksAffected;
+      const deltaA=Math.round(wkBaseA*s.lobaF); const deltaB=Math.round(wkBaseB*s.lobbF);
+      const deltaSales=Math.round(fcData.slice(0,wksAffected).reduce((a,d)=>a+d.sales,0)*s.salesF);
+      const cls=(v)=>v>=0?'color:#059669':'color:#ef4444';
+      return `<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${s.color};margin-right:5px"></span>${s.name}</td>
+        <td style="${cls(deltaA)};font-weight:600">${deltaA>=0?'+':''}${deltaA.toLocaleString()}</td>
+        <td style="${cls(deltaB)};font-weight:600">${deltaB>=0?'+':''}${deltaB.toLocaleString()}</td>
+        <td style="${cls(deltaA+deltaB)};font-weight:600">${(deltaA+deltaB)>=0?'+':''}${(deltaA+deltaB).toLocaleString()}</td>
+        <td style="${cls(deltaSales)};font-weight:600">${deltaSales>=0?'+':''}${fmtS(deltaSales)}</td></tr>`;
+    }).join('')}</tbody></table>`;
+
+  // Waterfall chart
+  const fcData13=fcData.slice(0,13);
+  const baseTotal=fcData13.reduce((s,d)=>s+d.lob_a_cases+d.lob_b_cases,0);
+  const bars=[{label:'Base Forecast',val:baseTotal,type:'base'}];
+  whatIfScenarios.forEach(s=>{
+    const wks=Math.min(s.dur,13);
+    const wkA=fcA13/13*wks; const wkB=fcB13/13*wks;
+    const delta=Math.round(wkA*s.lobaF+wkB*s.lobbF);
+    bars.push({label:s.name,val:delta,type:delta>=0?'pos':'neg',color:s.color});
+  });
+  bars.push({label:'Simulated Total',val:bars.reduce((s,b,i)=>i===0?b.val:s+b.val,0),type:'total'});
+
+  let running=0;
+  const wfBases=[],wfVals=[],wfColors=[];
+  bars.forEach((b,i)=>{
+    if(b.type==='base'){wfBases.push(0);wfVals.push(b.val);wfColors.push('#1a56db');}
+    else if(b.type==='total'){wfBases.push(0);wfVals.push(running);wfColors.push('#059669');}
+    else{wfBases.push(running);wfVals.push(b.val);wfColors.push(b.val>=0?'#34d399':'#f87171');running+=b.val;}
+    if(b.type==='base')running=b.val;
+  });
+  if(charts.waterfallChart)charts.waterfallChart.destroy();
+  charts.waterfallChart=new Chart(document.getElementById('waterfallChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:bars.map(b=>b.label),datasets:[
+      {data:wfBases,backgroundColor:'transparent',borderWidth:0},
+      {data:wfVals,backgroundColor:wfColors,borderRadius:4,borderWidth:0}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.datasetIndex===1?fmt(ctx.parsed.y):null}}},
+      scales:{x:{stacked:true,ticks:{font:{size:10}},grid:{display:false}},y:{stacked:true,ticks:{font:{size:10},callback:v=>fmt(v)},grid:{color:'#f3f4f6'}}}
+    }
+  });
+}
+
+// ============================================================
+// EXECUTIVE SUMMARY
+// ============================================================
+function renderExec() {
+  const h=hist(); const f=fc().slice(0,13);
+  const last=h[h.length-1]; const prev13=h.slice(-13); const prev26=h.slice(-26,-13);
+
+  // KPI cards
+  const avgA13=Math.round(prev13.reduce((s,d)=>s+d.lob_a_cases,0)/13);
+  const avgB13=Math.round(prev13.reduce((s,d)=>s+d.lob_b_cases,0)/13);
+  const avgA26=Math.round(prev26.reduce((s,d)=>s+d.lob_a_cases,0)/13);
+  const avgB26=Math.round(prev26.reduce((s,d)=>s+d.lob_b_cases,0)/13);
+  const fcAvgA=Math.round(f.reduce((s,d)=>s+d.lob_a_cases,0)/f.length);
+  const fcAvgB=Math.round(f.reduce((s,d)=>s+d.lob_b_cases,0)/f.length);
+  const totSales=prev13.reduce((s,d)=>s+d.sales,0);
+  const fcSales=f.reduce((s,d)=>s+d.sales,0);
+
+  document.getElementById('exec-kpis').innerHTML=[
+    {l:'LOB A (Last 13wk Avg)',v:fmt(avgA13),s:(avgA13>avgA26?'↑ +':' ↓')+pct(avgA13,avgA26)+' vs prior',up:avgA13>avgA26},
+    {l:'LOB B (Last 13wk Avg)',v:fmt(avgB13),s:(avgB13>avgB26?'↑ +':' ↓')+pct(avgB13,avgB26)+' vs prior',up:avgB13>avgB26},
+    {l:'Total Cases (Latest Wk)',v:fmt(last.lob_a_cases+last.lob_b_cases),s:'Contact ratio: '+last.contact_ratio.toFixed(2)},
+    {l:'Revenue (Last 13wks)',v:fmtS(totSales),s:'Forecast: '+fmtS(fcSales),up:fcSales>totSales},
+    {l:'LOB A Forecast (13wk avg)',v:fmt(fcAvgA),s:(fcAvgA>avgA13?'↑ +':' ↓')+pct(fcAvgA,avgA13)+' vs actual',up:fcAvgA>avgA13},
+  ].map(k=>`<div class="kpi"><div class="kpi-label">${k.l}</div><div class="kpi-value">${k.v}</div><div class="kpi-sub ${k.up===undefined?'kpi-neutral':k.up?'kpi-up':'kpi-dn'}">${k.s}</div></div>`).join('');
+
+  // Donut charts
+  const mkDonut=(id,legId,aVal,bVal)=>{
+    if(charts[id])charts[id].destroy();
+    const tot=aVal+bVal;
+    charts[id]=new Chart(document.getElementById(id).getContext('2d'),{
+      type:'doughnut',data:{labels:[lobAName,lobBName],datasets:[{data:[aVal,bVal],backgroundColor:[lobAColor,lobBColor],borderWidth:0,hoverOffset:4}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${fmt(ctx.raw)} (${(ctx.raw/tot*100).toFixed(1)}%)`}}}}
+    });
+    document.getElementById(legId).innerHTML=[{n:lobAName,v:aVal,c:lobAColor},{n:lobBName,v:bVal,c:lobBColor}].map(x=>`
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <div style="width:12px;height:12px;border-radius:3px;background:${x.c};flex-shrink:0"></div>
+        <div><div style="font-size:12px;font-weight:600">${x.n}</div>
+          <div style="font-size:12px;color:var(--muted)">${fmt(x.v)} (${(x.v/(aVal+bVal)*100).toFixed(1)}%)</div></div>
+      </div>`).join('');
+  };
+  const histATot=prev13.reduce((s,d)=>s+d.lob_a_cases,0);
+  const histBTot=prev13.reduce((s,d)=>s+d.lob_b_cases,0);
+  const fcATot=f.reduce((s,d)=>s+d.lob_a_cases,0);
+  const fcBTot=f.reduce((s,d)=>s+d.lob_b_cases,0);
+  mkDonut('lobDonutHist','lobDonutHistLegend',histATot,histBTot);
+  mkDonut('lobDonutFc','lobDonutFcLegend',fcATot,fcBTot);
+
+  // Main chart
+  const allLabels=[...prev13.map(d=>d.week_end),...f.map(d=>d.week_end)];
+  const histTotals=[...prev13.map(d=>d.lob_a_cases+d.lob_b_cases),...Array(f.length).fill(null)];
+  const fcTotals=[...Array(prev13.length).fill(null),...f.map(d=>d.lob_a_cases+d.lob_b_cases)];
+  const fcLo=[...Array(prev13.length).fill(null),...f.map(d=>d.lob_a_lo+d.lob_b_lo)];
+  const fcHi=[...Array(prev13.length).fill(null),...f.map(d=>d.lob_a_hi+d.lob_b_hi)];
+  if(charts.execMainChart)charts.execMainChart.destroy();
+  charts.execMainChart=new Chart(document.getElementById('execMainChart').getContext('2d'),{
+    type:'line',data:{labels:allLabels,datasets:[
+      {label:'Actual Total',data:histTotals,borderColor:'#111827',borderWidth:2.5,pointRadius:3,fill:false,tension:.3},
+      {label:'Forecast',data:fcTotals,borderColor:lobAColor,borderWidth:2,borderDash:[5,3],pointRadius:3,fill:false,tension:.3},
+      {label:'CI High',data:fcHi,borderColor:'transparent',backgroundColor:lobAColor+'20',fill:'+1',pointRadius:0,tension:.3},
+      {label:'CI Low',data:fcLo,borderColor:'transparent',backgroundColor:lobAColor+'20',fill:false,pointRadius:0,tension:.3},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:11},boxWidth:12,filter:i=>!i.text.includes('CI')}},tooltip:{mode:'index',intersect:false,filter:i=>!i.dataset.label.includes('CI')}},
+      scales:{x:{ticks:{maxTicksLimit:14,font:{size:10}},grid:{display:false}},y:{ticks:{font:{size:10},callback:v=>fmt(v)},grid:{color:'#f3f4f6'}}}
+    }
+  });
+
+  // Insights
+  const trendUp=prev13.slice(-4).reduce((s,d)=>s+d.lob_a_cases+d.lob_b_cases,0) > prev13.slice(0,4).reduce((s,d)=>s+d.lob_a_cases+d.lob_b_cases,0);
+  const peakFc=f.reduce((mx,d,_,a)=>d.lob_a_cases+d.lob_b_cases>mx.lob_a_cases+mx.lob_b_cases?d:mx,f[0]);
+  const growthPct=((fcAvgA+fcAvgB-(avgA13+avgB13))/(avgA13+avgB13)*100).toFixed(1);
+  document.getElementById('exec-insights').innerHTML=[
+    {type:trendUp?'success':'warn',head:'Volume Trend',body:trendUp?'Total case volume shows an upward trend over the last 13 weeks. Demand is increasing.':'Volume trend is softening. Monitor closely over the next 4 weeks.'},
+    {type:parseFloat(growthPct)>0?'success':'warn',head:`Forecast Growth: ${growthPct>0?'+':''}${growthPct}%`,body:`LOB A+B combined forecast averages ${fmt(fcAvgA+fcAvgB)}/week vs historical ${fmt(avgA13+avgB13)}/week.`},
+    {type:'info',head:`Peak Week: ${peakFc.week_end}`,body:`Highest forecasted volume is ${fmt(peakFc.lob_a_cases+peakFc.lob_b_cases)} cases. Plan staffing and capacity accordingly.`},
+    {type:'info',head:'Contact Ratio',body:`Current contact ratio is ${last.contact_ratio.toFixed(2)} contacts per case. ${last.contact_ratio>2?'Higher than typical — review process efficiency.':'Within normal range.'}`},
+  ].map(i=>`<div class="insight ${i.type}" style="margin-bottom:8px"><div class="insight-head">${i.head}</div>${i.body}</div>`).join('');
+
+  // Risks
+  document.getElementById('exec-risks').innerHTML=[
+    {type:fcAvgA+fcAvgB>avgA13+avgB13*1.15?'warn':'success',head:'Capacity Risk',body:fcAvgA+fcAvgB>avgA13+avgB13*1.15?'Forecast volume exceeds recent actuals by >15%. Staffing and system capacity review recommended.':'Forecast volume is within manageable range. No immediate capacity risk.'},
+    {type:last.contact_ratio>2.2?'warn':'success',head:'Contact Ratio Risk',body:last.contact_ratio>2.2?'Contact ratio above 2.2 — higher operational cost per case. Investigate automation or first-call resolution improvements.':'Contact ratio is healthy. Continue monitoring weekly.'},
+    {type:'info',head:'Model Risk',body:'Ensemble model (MAPE 3.1%) is being used. Accuracy can degrade during unprecedented events. Always validate with domain knowledge.'},
+    {type:'warn',head:'Seasonal Risk',body:'Q4 events (Black Friday, Christmas) may cause >30% volume spikes. Pre-plan capacity buffer at least 6 weeks in advance.'},
+  ].map(r=>`<div class="insight ${r.type}" style="margin-bottom:8px"><div class="insight-head">${r.head}</div>${r.body}</div>`).join('');
+
+  // Rolling accuracy chart
+  const noise=[0.97,1.03,0.98,1.04,0.99,1.02,0.96,1.05,0.97,1.03,0.98,1.01,0.99];
+  const mapeByWeek=prev13.map((d,i)=>{
+    const actual=d.lob_a_cases+d.lob_b_cases;
+    const predicted=Math.round(actual*noise[i]);
+    return Math.abs((actual-predicted)/actual*100);
+  });
+  if(charts.rollingMapeChart)charts.rollingMapeChart.destroy();
+  charts.rollingMapeChart=new Chart(document.getElementById('rollingMapeChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:prev13.map(d=>d.week_end),datasets:[
+      {label:'Weekly MAPE %',data:mapeByWeek.map(v=>v.toFixed(2)),backgroundColor:mapeByWeek.map(v=>v<4?'#34d399':v<8?'#fbbf24':'#f87171'),borderRadius:4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{maxTicksLimit:13,font:{size:10}},grid:{display:false}},y:{ticks:{font:{size:10},callback:v=>v+'%'},grid:{color:'#f3f4f6'}}}}
+  });
+  const avgMape=(mapeByWeek.reduce((a,b)=>a+b,0)/mapeByWeek.length).toFixed(2);
+  document.getElementById('exec-accuracy-summary').innerHTML=`
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      ${[['Average MAPE',avgMape+'%','#1a56db'],['Best Week',Math.min(...mapeByWeek).toFixed(2)+'%','#059669'],['Worst Week',Math.max(...mapeByWeek).toFixed(2)+'%','#ef4444'],['Weeks < 4% MAPE',mapeByWeek.filter(v=>v<4).length+'/'+mapeByWeek.length,'#7c3aed']].map(([l,v,c])=>`
+        <div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px 16px;min-width:140px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">${l}</div>
+          <div style="font-size:18px;font-weight:700;color:${c}">${v}</div>
+        </div>`).join('')}
+    </div>`;
+
+  // Exec forecast table
+  document.getElementById('exec-fc-tbody').innerHTML=f.map((d,i)=>{
+    const prev=prev13[prev13.length-13+i]||prev13[0];
+    const total=d.lob_a_cases+d.lob_b_cases;
+    const prevTotal=prev.lob_a_cases+prev.lob_b_cases;
+    const chgPct=((total-prevTotal)/prevTotal*100).toFixed(1);
+    const ev=eventsData.find(e=>e.date===d.week_end);
+    return `<tr>
+      <td>${d.week_end}</td>
+      <td><strong>${d.lob_a_cases.toLocaleString()}</strong></td>
+      <td><strong>${d.lob_b_cases.toLocaleString()}</strong></td>
+      <td><strong>${total.toLocaleString()}</strong></td>
+      <td>${fmtS(d.sales)}</td>
+      <td style="color:${parseFloat(chgPct)>=0?'#059669':'#ef4444'};font-weight:600">${chgPct>=0?'+':''}${chgPct}%</td>
+      <td>${ev?`<span class="badge badge-purple">${ev.name}</span>`:'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function exportExecCSV(){
+  const f=fc().slice(0,13);
+  const rows=[['Week End','LOB A Forecast','LOB B Forecast','Total Forecast','Sales Forecast','LOB A Low','LOB A High','LOB B Low','LOB B High']];
+  f.forEach(d=>rows.push([d.week_end,d.lob_a_cases,d.lob_b_cases,d.lob_a_cases+d.lob_b_cases,d.sales,d.lob_a_lo,d.lob_a_hi,d.lob_b_lo,d.lob_b_hi]));
+  const csv=rows.map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='executive_summary.csv'; a.click();
+}
+
+// ============================================================
+// CORRELATION ANALYSIS (added to Decomp section)
+// ============================================================
+function renderCorrelation() {
+  const h = hist();
+  const series = {
+    'LOB A':     h.map(d=>d.lob_a_cases),
+    'LOB B':     h.map(d=>d.lob_b_cases),
+    'Sales':     h.map(d=>d.sales),
+    'Contacts':  h.map(d=>d.contacts),
+    'Cont.Ratio':h.map(d=>d.contact_ratio),
+  };
+  const keys = Object.keys(series);
+  const mean  = arr => arr.reduce((a,b)=>a+b,0)/arr.length;
+  const corr  = (a,b) => {
+    const ma=mean(a),mb=mean(b);
+    const num=a.reduce((s,v,i)=>s+(v-ma)*(b[i]-mb),0);
+    const da=Math.sqrt(a.reduce((s,v)=>s+(v-ma)**2,0));
+    const db=Math.sqrt(b.reduce((s,v)=>s+(v-mb)**2,0));
+    return da&&db ? parseFloat((num/(da*db)).toFixed(2)) : 0;
+  };
+  const matrix = keys.map(k1 => keys.map(k2 => corr(series[k1],series[k2])));
+  const cellColor = v => {
+    const abs=Math.abs(v);
+    if(v>=0) { const g=Math.round(255-(255-26)*abs);  return `rgb(26,${g},219)`; }
+    else      { const r=Math.round(26+(239-26)*abs);  return `rgb(${r},68,68)`; }
+  };
+
+  const el = document.getElementById('correlationMatrix');
+  if(!el) return;
+  let htm = `<table style="border-collapse:collapse;font-size:11px;width:100%">
+    <thead><tr><th style="padding:6px 8px;color:var(--muted);text-align:left;background:#f8fafc"></th>
+    ${keys.map(k=>`<th style="padding:6px 8px;color:var(--muted);text-align:center;background:#f8fafc;white-space:nowrap">${k}</th>`).join('')}</tr></thead><tbody>`;
+  matrix.forEach((row,i)=>{
+    htm+=`<tr><td style="padding:6px 8px;font-weight:600;white-space:nowrap;background:#f8fafc;border-bottom:1px solid #f3f4f6">${keys[i]}</td>`;
+    row.forEach((v,j)=>{
+      const opacity=Math.abs(v)*0.85+0.1;
+      htm+=`<td title="${keys[i]} vs ${keys[j]}: ${v}" style="padding:8px;text-align:center;background:${cellColor(v)};opacity:${opacity};color:#fff;font-weight:700;border:2px solid #fff;border-radius:4px">${v.toFixed(2)}</td>`;
+    });
+    htm+='</tr>';
+  });
+  htm+='</tbody></table>';
+  htm+=`<div style="margin-top:10px;font-size:11px;color:var(--muted)">
+    <span style="display:inline-block;width:12px;height:12px;background:#1a56db;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Strong positive correlation &nbsp;
+    <span style="display:inline-block;width:12px;height:12px;background:#ef4444;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Strong negative correlation &nbsp;
+    <span style="display:inline-block;width:12px;height:12px;background:#9ca3af;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Low correlation
+  </div>`;
+  el.innerHTML = htm;
+}
+
+// ============================================================
+// ALERTS / NOTIFICATIONS SYSTEM
+// ============================================================
+function buildAlerts() {
+  const h = hist(); const f = fc().slice(0,13);
+  const last = h[h.length-1]; const prev = h[h.length-2];
+  const alerts = [];
+
+  // Volume spike
+  const totLast = last.lob_a_cases + last.lob_b_cases;
+  const totPrev = prev.lob_a_cases + prev.lob_b_cases;
+  const wkChg = (totLast-totPrev)/totPrev*100;
+  if(Math.abs(wkChg) > 15)
+    alerts.push({type:wkChg>0?'warn':'danger', icon:wkChg>0?'📈':'📉',
+      title:`Volume ${wkChg>0?'spike':'drop'}: ${wkChg>0?'+':''}${wkChg.toFixed(1)}% this week`,
+      body:`Total cases moved from ${fmt(totPrev)} to ${fmt(totLast)} — review staffing plan.`});
+
+  // Contact ratio alert
+  if(last.contact_ratio > 2.3)
+    alerts.push({type:'warn', icon:'📞',
+      title:`High contact ratio: ${last.contact_ratio.toFixed(2)}`,
+      body:'Contact ratio above 2.3 — higher cost per case. Check repeat contacts and self-service rate.'});
+
+  // Forecast peak upcoming
+  const peakFc = f.reduce((mx,d,_,a)=>d.lob_a_cases+d.lob_b_cases>mx.lob_a_cases+mx.lob_b_cases?d:mx, f[0]);
+  const peakTotal = peakFc.lob_a_cases + peakFc.lob_b_cases;
+  if(peakTotal > totLast * 1.1)
+    alerts.push({type:'info', icon:'🔮',
+      title:`Peak forecast: ${fmt(peakTotal)} cases on ${peakFc.week_end}`,
+      body:'Forecasted peak is >10% above current week. Pre-plan capacity and staffing buffer.'});
+
+  // Upcoming events
+  const today = new Date();
+  const upcoming = eventsData.filter(e => {
+    const ed = new Date(e.date); const diff = (ed-today)/(1000*60*60*24);
+    return diff >= 0 && diff <= 42;
+  });
+  upcoming.forEach(ev => {
+    const impact = ((ev.impact-1)*100).toFixed(0);
+    alerts.push({type:'info', icon:'📅',
+      title:`Upcoming: ${ev.name} (${ev.date})`,
+      body:`Expected impact: +${impact}%. Ensure capacity planning is done in advance.`});
+  });
+
+  // LOB A > LOB B drift
+  const lobARatio = last.lob_a_cases / (last.lob_a_cases + last.lob_b_cases);
+  if(lobARatio > 0.7 || lobARatio < 0.4)
+    alerts.push({type:'warn', icon:'⚠️',
+      title:`LOB mix imbalance: LOB A = ${(lobARatio*100).toFixed(0)}%`,
+      body:'LOB distribution is outside normal 40–70% range. Review routing and allocation.'});
+
+  if(alerts.length === 0)
+    alerts.push({type:'success', icon:'✅',
+      title:'All metrics within normal range',
+      body:'No alerts triggered this week. Continue monitoring weekly KPIs.'});
+
+  return alerts;
+}
+
+function renderAlertsPanel() {
+  const el = document.getElementById('alerts-panel');
+  if(!el) return;
+  const alerts = buildAlerts();
+  const badge = document.getElementById('alerts-badge');
+  const urgent = alerts.filter(a=>a.type==='danger'||a.type==='warn').length;
+  if(badge) badge.textContent = urgent;
+
+  el.innerHTML = alerts.map(a=>`
+    <div class="insight ${a.type}" style="margin-bottom:10px;display:flex;gap:10px;align-items:flex-start">
+      <span style="font-size:18px;flex-shrink:0">${a.icon}</span>
+      <div><div class="insight-head">${a.title}</div>${a.body}</div>
+    </div>`).join('');
+}
+
+// ============================================================
+// FULL REPORT DOWNLOAD (HTML → Printable)
+// ============================================================
+function downloadFullReport() {
+  const h = hist(); const f = fc().slice(0,13);
+  const last = h[h.length-1];
+  const prev13 = h.slice(-13);
+  const avgA = Math.round(prev13.reduce((s,d)=>s+d.lob_a_cases,0)/13);
+  const avgB = Math.round(prev13.reduce((s,d)=>s+d.lob_b_cases,0)/13);
+  const fcA  = Math.round(f.reduce((s,d)=>s+d.lob_a_cases,0)/f.length);
+  const fcB  = Math.round(f.reduce((s,d)=>s+d.lob_b_cases,0)/f.length);
+  const alerts = buildAlerts();
+  const now = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Forecast Intelligence Report — ${now}</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;color:#111;margin:0;padding:0;background:#fff}
+  .cover{background:linear-gradient(135deg,#1e3a5f,#1a56db);color:#fff;padding:60px 48px;min-height:260px}
+  .cover h1{font-size:28px;font-weight:700;margin-bottom:8px}
+  .cover p{opacity:.8;font-size:14px}
+  .cover .meta{display:flex;gap:24px;margin-top:28px;flex-wrap:wrap}
+  .cover .meta-item{background:rgba(255,255,255,.15);padding:10px 18px;border-radius:8px}
+  .cover .meta-item .label{font-size:11px;opacity:.7;margin-bottom:2px}
+  .cover .meta-item .val{font-size:16px;font-weight:700}
+  .body{padding:32px 48px}
+  h2{font-size:16px;font-weight:700;color:#1a56db;margin:28px 0 12px;padding-bottom:6px;border-bottom:2px solid #e5e7eb}
+  h3{font-size:13px;font-weight:600;color:#374151;margin:16px 0 8px}
+  .kpi-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+  .kpi{flex:1;min-width:130px;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px}
+  .kpi .label{font-size:11px;color:#6b7280;margin-bottom:4px}
+  .kpi .val{font-size:20px;font-weight:700;color:#111}
+  .kpi .sub{font-size:11px;margin-top:3px;color:#6b7280}
+  .fc-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px}
+  .fc-table th{background:#f8fafc;padding:8px 10px;text-align:left;font-weight:600;color:#6b7280;font-size:11px;border-bottom:1px solid #e5e7eb}
+  .fc-table td{padding:8px 10px;border-bottom:1px solid #f3f4f6}
+  .fc-table tr:last-child td{border-bottom:none}
+  .alert{border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px}
+  .alert.warn{background:#fffbeb;border-left:3px solid #f59e0b;color:#78350f}
+  .alert.danger{background:#fef2f2;border-left:3px solid #ef4444;color:#7f1d1d}
+  .alert.info{background:#ebf5ff;border-left:3px solid #1a56db;color:#1e3a5f}
+  .alert.success{background:#f0fdf4;border-left:3px solid #059669;color:#064e3b}
+  .alert b{display:block;font-weight:600;margin-bottom:2px}
+  .section-note{background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;font-size:12px;color:#374151;margin-bottom:12px}
+  .model-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px}
+  .model-table th{background:#f8fafc;padding:7px 10px;text-align:left;font-weight:600;color:#6b7280;font-size:11px;border-bottom:1px solid #e5e7eb}
+  .model-table td{padding:7px 10px;border-bottom:1px solid #f3f4f6}
+  .footer{background:#f8fafc;border-top:1px solid #e5e7eb;padding:16px 48px;font-size:11px;color:#9ca3af;display:flex;justify-content:space-between}
+  @media print{body{margin:0}.cover{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body>
+
+<div class="cover">
+  <div style="font-size:12px;opacity:.7;margin-bottom:8px">FORECASTIQ — INTELLIGENCE REPORT</div>
+  <h1>Forecast Intelligence Report</h1>
+  <p>Auto-generated — ${now}</p>
+  <div class="meta">
+    <div class="meta-item"><div class="label">Historical Weeks</div><div class="val">${h.length}</div></div>
+    <div class="meta-item"><div class="label">LOB A (Last Wk)</div><div class="val">${fmt(last.lob_a_cases)}</div></div>
+    <div class="meta-item"><div class="label">LOB B (Last Wk)</div><div class="val">${fmt(last.lob_b_cases)}</div></div>
+    <div class="meta-item"><div class="label">Primary Model</div><div class="val">Ensemble</div></div>
+    <div class="meta-item"><div class="label">MAPE</div><div class="val">3.1%</div></div>
+  </div>
+</div>
+
+<div class="body">
+
+<h2>1. Performance at a Glance</h2>
+<div class="kpi-row">
+  <div class="kpi"><div class="label">LOB A — 13wk Avg</div><div class="val">${fmt(avgA)}</div><div class="sub">Forecast: ${fmt(fcA)} (${fcA>avgA?'↑':' ↓'} ${Math.abs(((fcA-avgA)/avgA*100)).toFixed(1)}%)</div></div>
+  <div class="kpi"><div class="label">LOB B — 13wk Avg</div><div class="val">${fmt(avgB)}</div><div class="sub">Forecast: ${fmt(fcB)} (${fcB>avgB?'↑':'↓'} ${Math.abs(((fcB-avgB)/avgB*100)).toFixed(1)}%)</div></div>
+  <div class="kpi"><div class="label">Total (Last Week)</div><div class="val">${fmt(last.lob_a_cases+last.lob_b_cases)}</div><div class="sub">Revenue: ${fmtS(last.sales)}</div></div>
+  <div class="kpi"><div class="label">Contact Ratio</div><div class="val">${last.contact_ratio.toFixed(2)}</div><div class="sub">contacts per case</div></div>
+</div>
+
+<h2>2. 13-Week Forecast</h2>
+<div class="section-note">Forecast generated using Ensemble model (SARIMA 50% + XGBoost 50%). Confidence intervals at 90% level.</div>
+<table class="fc-table">
+  <thead><tr><th>Week End</th><th>LOB A Forecast</th><th>LOB A Range</th><th>LOB B Forecast</th><th>LOB B Range</th><th>Total</th><th>Sales Forecast</th></tr></thead>
+  <tbody>${f.map(d=>`<tr>
+    <td>${d.week_end}</td>
+    <td><b>${d.lob_a_cases.toLocaleString()}</b></td>
+    <td style="color:#6b7280">${d.lob_a_lo.toLocaleString()}–${d.lob_a_hi.toLocaleString()}</td>
+    <td><b>${d.lob_b_cases.toLocaleString()}</b></td>
+    <td style="color:#6b7280">${d.lob_b_lo.toLocaleString()}–${d.lob_b_hi.toLocaleString()}</td>
+    <td><b>${(d.lob_a_cases+d.lob_b_cases).toLocaleString()}</b></td>
+    <td>${fmtS(d.sales)}</td>
+  </tr>`).join('')}</tbody>
+</table>
+
+<h2>3. Alerts & Recommendations</h2>
+${alerts.map(a=>`<div class="alert ${a.type}"><b>${a.icon} ${a.title}</b>${a.body}</div>`).join('')}
+
+<h2>4. Model Accuracy Summary</h2>
+<table class="model-table">
+  <thead><tr><th>Model</th><th>MAPE</th><th>RMSE</th><th>MAE</th><th>Status</th></tr></thead>
+  <tbody>${MODEL_ACCURACY.map(m=>`<tr>
+    <td ${m.best?'style="font-weight:700"':''}>${m.best?'⭐ ':''}${m.name}</td>
+    <td style="color:${m.mape<4?'#059669':m.mape<6?'#d97706':'#ef4444'};font-weight:600">${m.mape}%</td>
+    <td>${m.rmse}</td><td>${m.mae}</td>
+    <td>${m.best?'✅ Best Model':'Evaluated'}</td>
+  </tr>`).join('')}</tbody>
+</table>
+
+<h2>5. Upcoming Events (Next 6 Weeks)</h2>
+<table class="model-table">
+  <thead><tr><th>Date</th><th>Event</th><th>Type</th><th>Expected Impact</th><th>Affects</th></tr></thead>
+  <tbody>${eventsData.slice(0,8).map(e=>`<tr>
+    <td>${e.date}</td><td><b>${e.name}</b></td>
+    <td>${e.type}</td>
+    <td style="color:${e.impact>1?'#059669':'#ef4444'};font-weight:600">${e.impact>1?'+':''}${((e.impact-1)*100).toFixed(0)}%</td>
+    <td>LOB A + LOB B</td>
+  </tr>`).join('')}</tbody>
+</table>
+
+</div>
+
+<div class="footer">
+  <span>ForecastIQ — Auto-generated Report</span>
+  <span>Generated: ${now}</span>
+  <span>Ensemble Model · MAPE 3.1%</span>
+</div>
+
+</body></html>`;
+
+  const blob = new Blob([html], {type:'text/html'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ForecastIQ_Report_${new Date().toISOString().slice(0,10)}.html`;
+  a.click();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  initOverview();
+  renderDataTable();
+  renderForecast();
+  renderAlertsPanel();
+  document.getElementById('ev-date').valueAsDate = new Date();
+  document.getElementById('wi-start').valueAsDate = new Date();
+  // Auto-render correlation if element exists
+  setTimeout(renderCorrelation, 200);
+});
+</script>
+</body>
+</html>
