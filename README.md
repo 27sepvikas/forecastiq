@@ -3,8 +3,8 @@
 # 📈 ForecastIQ
 ### Sales Intelligence & Forecasting Platform
 
-[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-Click_Here-2563eb?style=for-the-badge)](https://YOUR_USERNAME.github.io/forecastiq)
-[![GitHub Pages](https://img.shields.io/badge/Deployed_on-GitHub_Pages-222222?style=for-the-badge&logo=github)](https://YOUR_USERNAME.github.io/forecastiq)
+[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-Click_Here-2563eb?style=for-the-badge)](https://27sepvikas.github.io/forecastiq)
+[![GitHub Pages](https://img.shields.io/badge/Deployed_on-GitHub_Pages-222222?style=for-the-badge&logo=github)](https://27sepvikas.github.io/forecastiq)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![HTML](https://img.shields.io/badge/Built_with-HTML%20%2B%20JS-orange?style=for-the-badge&logo=html5)](index.html)
 [![No Install](https://img.shields.io/badge/No_Install-Zero_Dependencies-success?style=for-the-badge)](index.html)
