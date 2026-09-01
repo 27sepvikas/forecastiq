@@ -14,7 +14,7 @@ Upload your weekly data → Get AI-powered forecasts → Simulate scenarios → 
 
 ---
 
-### 🔴 [▶ Open Live Demo](https://YOUR_USERNAME.github.io/forecastiq)
+### 🔴 [▶ Open Live Demo](https://27sepvikas.github.io/forecastiq)
 
 > ⚡ No login · No install · No backend · Works 100% in browser
 
